@@ -1470,6 +1470,45 @@ const CASES = [
     expect: () => ({}),
   },
   {
+    // A Navan single-page transition can keep the same URL and the same route
+    // summary while replacing the flight-result list with seat selection. The
+    // old route cache must not keep our fixed panel above Navan's Continue
+    // button, and a booking-summary flight must not count as a live result row.
+    name: "navan-panel-leaves-booking-flow",
+    navan: true, o: "DEN", d: "SFO",
+    rows: [{ label: "United 1596", time: "8:30 a.m." }],
+    mock: { o: "DEN", d: "SFO", predict: { "UA1596": 0.68 } },
+    driver: async ({ page, url }) => {
+      await page.goto(url, { waitUntil: "domcontentloaded" });
+      await page.waitForSelector(".usl-panel", { timeout: 30000 });
+      const shown = await page.evaluate(() => !!document.querySelector(".usl-panel"));
+      await page.evaluate(() => {
+        document.body.innerHTML = `<main aria-label="Choose seats">
+          <h1>Choose seats</h1>
+          <p>Depart from DEN</p>
+          <div class="itinerary-summary">United 1596 · 8:30 a.m. — DEN to SFO</div>
+          <button type="button" id="continue-booking">Continue</button>
+        </main>`;
+      });
+      await page.waitForTimeout(4500);
+      const state = await page.evaluate(() => ({
+        panel: !!document.querySelector(".usl-panel"),
+        controls: document.querySelectorAll(".usl-panel button").length,
+      }));
+      return {
+        appeared: shown,
+        panelText: state.panel ? await page.$eval(".usl-panel", (e) => e.innerText) : "(panel removed)",
+        badges: [],
+        probe: state,
+        checks: {
+          panelShownOnResults: shown === true,
+          panelRemovedOnSeatView: state.panel === false,
+          noInjectedPanelControlsRemain: state.controls === 0,
+        },
+      };
+    },
+  },
+  {
     // ROUND-19 FIX 1: per-flight HTTP failures must be BOUNDED by the 4-attempt
     // ledger, not retried forever. One genuine no-data United flight (200→null)
     // and one that always answers HTTP 500. The 500 flight must be requested AT

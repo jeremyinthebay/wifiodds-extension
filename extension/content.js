@@ -284,18 +284,30 @@
   } catch {}
 
   /* ── Navan: derive route context from the DOM (no URL params there) ── */
-  function getNavanContext() {
-    const txt = (document.body && document.body.innerText) || "";
-    const legO = (txt.match(/Depart from\s*([A-Z]{3})/) || [])[1] || "";
-    const cacheKey = location.pathname + "|" + legO;
-    if (navanCtxCache && navanCtxKey === cacheKey) return navanCtxCache;
-    let o, d;
-    // the trip strip is a stable ".flight-header__route" whose text is the two
-    // airport codes with the swap glyph as an icon (e.g. innerText "DENSFO").
+  function navanRouteElement() {
     let el = document.querySelector(SEL.navanRoute);
     if (!el) el = [...document.querySelectorAll("div, span, button, h1, h2, h3")].find((e) =>
       e.children.length <= 4 && /^[A-Z]{3}[^A-Z]{0,3}[A-Z]{3}$/.test((e.textContent || "").trim())
       && !e.closest(".flight-search-results__option"));
+    return el || null;
+  }
+  function navanResultsActive() {
+    if (!navanRouteElement()) return false;
+    return [...document.querySelectorAll(".flight-search-results__option, .flight-card")].some((row) => {
+      const txt = hostText(row);
+      return TIME_ONE.test(txt) && FN_RE.test(txt);
+    });
+  }
+  function getNavanContext() {
+    const txt = (document.body && document.body.innerText) || "";
+    const legO = (txt.match(/Depart from\s*([A-Z]{3})/) || [])[1] || "";
+    const cacheKey = location.pathname + "|" + legO;
+    let o, d;
+    // the trip strip is a stable ".flight-header__route" whose text is the two
+    // airport codes with the swap glyph as an icon (e.g. innerText "DENSFO").
+    const el = navanRouteElement();
+    if (!el) return null;
+    if (navanCtxCache && navanCtxKey === cacheKey) return navanCtxCache;
     if (el) { const m = (el.textContent || "").trim().match(/([A-Z]{3})[^A-Z]{0,3}([A-Z]{3})/); if (m) { o = m[1]; d = m[2]; } }
     if (!/^[A-Z]{3}$/.test(o || "") || !/^[A-Z]{3}$/.test(d || "") || o === d) return null;
     const isReturn = legO && legO === d;              // showing the return leg
@@ -2314,6 +2326,11 @@
     if (!c) { if (panelEl) { panelEl.remove(); panelEl = null; } ctx = null; ctxKey = ""; autoSortCueKey = ""; return; }
     const key = `${c.o}-${c.d}|${c.date}|${c.phase}`;
     if (c.navan) {
+      if (!navanResultsActive()) {
+        if (panelEl) { panelEl.remove(); panelEl = null; }
+        navanSig = ""; navanLoading = false; navanUnavailable = false;
+        return;
+      }
       // Navan: badges come from scan()/predictions; just (re)render the panel from
       // the on-page flights and let the explicit Prioritize action reorder if on.
       const routeChanged = !ctx || c.o !== ctx.o || c.d !== ctx.d || c.phase !== ctx.phase;
