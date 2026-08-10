@@ -9,6 +9,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Fixed
+
+- The on-page panel now closes when Navan leaves flight results, including during seat selection.
+  It also has visible Minimize, Open, Move left and Move right controls, and can be dragged without
+  saving its position.
+
 ## [3.0.1] - 2026-08-03
 
 Chrome Web Store: not uploaded.

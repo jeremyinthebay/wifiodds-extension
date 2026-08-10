@@ -149,10 +149,14 @@ Run each command separately and record its bare exit code:
 ```sh
 node test/phase2-e2e.mjs
 node test/mutation-matrix.mjs
-sh build-store-verify.sh extension
+node build-release-history-verify.mjs
+sh build-store-verify.sh
 ```
 
-Expected: every command exits 0. Do not run `build-store-bundle.sh candidate` because this Tier B source work must not replace the pending Tier A candidate.
+Expected: the browser, mutation, and release-history commands exit 0. The store verifier exits 1
+because the committed 3.0.1 ZIP must not match this newer source tree; record that known-bad control
+as proof the old package cannot be uploaded as this change. Do not run `build-store-bundle.sh
+candidate` because this Tier B source work must not replace the pending Tier A candidate.
 
 - [ ] **Step 3: Inspect the exact diff and commit**
 
