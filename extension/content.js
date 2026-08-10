@@ -90,6 +90,10 @@
   // these — never because a periodic/DOM scan happens to be scheduled.
   let navanUnitedFns = new Set();
   let data = null, panelEl = null, scanScheduled = false;
+  // Page-local panel placement. Moving the overlay must never create a new
+  // stored preference: different booking sites put their controls in different
+  // places, so yesterday's coordinates are not a safe default for today's page.
+  let panelPlacement = null; // { mode:"left"|"right" } or { mode:"free", left, top }
   let probMap = new Map();
   let registry = new Map();
   let prioritizeActive = false, desiredOrder = null, lastSortTs = 0;
@@ -135,6 +139,81 @@
       rowsBadged: Math.max(0, Number(rowsBadged) || 0),
       lastScanOutcome: pathGate && Number(rowsBadged) > 0 ? "working" : "no-supported-results" };
   }
+  function clampPanelToViewport(p) {
+    if (!p || !p.isConnected) return;
+    const r = p.getBoundingClientRect();
+    const gap = 8;
+    const left = Math.min(Math.max(r.left, gap), Math.max(gap, innerWidth - r.width - gap));
+    const top = Math.min(Math.max(r.top, gap), Math.max(gap, innerHeight - r.height - gap));
+    p.style.left = left + "px";
+    p.style.top = top + "px";
+    p.style.right = "auto";
+    p.style.bottom = "auto";
+    panelPlacement = { mode: "free", left, top };
+  }
+  function applyPanelPlacement(p) {
+    if (!p || !panelPlacement) return;
+    if (panelPlacement.mode === "left") {
+      p.style.left = "12px"; p.style.right = "auto"; p.style.top = "auto"; p.style.bottom = "18px";
+    } else if (panelPlacement.mode === "right") {
+      p.style.left = "auto"; p.style.right = "12px"; p.style.top = "auto"; p.style.bottom = "18px";
+    } else {
+      p.style.left = panelPlacement.left + "px"; p.style.top = panelPlacement.top + "px";
+      p.style.right = "auto"; p.style.bottom = "auto";
+      clampPanelToViewport(p);
+    }
+  }
+  function setupPanelControls(p) {
+    const header = p.querySelector("header");
+    const minimize = p.querySelector(".usl-minimize");
+    const open = p.querySelector(".usl-open");
+    const moveLeft = p.querySelector(".usl-move-left");
+    const moveRight = p.querySelector(".usl-move-right");
+    if (!header || !minimize || !open || !moveLeft || !moveRight) return;
+    const setCollapsed = (collapsed, persist) => {
+      p.classList.toggle("usl-collapsed", collapsed);
+      minimize.setAttribute("aria-expanded", String(!collapsed));
+      open.setAttribute("aria-expanded", String(!collapsed));
+      if (persist) try { chrome.storage.local.set({ uslCollapsed: collapsed }); } catch (e) {}
+      requestAnimationFrame(() => applyPanelPlacement(p));
+    };
+    try { chrome.storage.local.get("uslCollapsed", (v) => setCollapsed(!!v.uslCollapsed, false)); } catch (e) {}
+    minimize.addEventListener("click", (ev) => { ev.stopPropagation(); setCollapsed(true, true); });
+    open.addEventListener("click", (ev) => { ev.stopPropagation(); setCollapsed(false, true); });
+    moveLeft.addEventListener("click", (ev) => {
+      ev.stopPropagation(); panelPlacement = { mode: "left" }; applyPanelPlacement(p);
+    });
+    moveRight.addEventListener("click", (ev) => {
+      ev.stopPropagation(); panelPlacement = { mode: "right" }; applyPanelPlacement(p);
+    });
+    header.addEventListener("pointerdown", (ev) => {
+      if (p.classList.contains("usl-collapsed") || ev.button !== 0 || ev.target.closest("button,a")) return;
+      const r = p.getBoundingClientRect();
+      const dx = ev.clientX - r.left, dy = ev.clientY - r.top;
+      panelPlacement = { mode: "free", left: r.left, top: r.top };
+      header.classList.add("usl-dragging");
+      try { header.setPointerCapture(ev.pointerId); } catch (e) {}
+      const move = (e) => {
+        p.style.left = (e.clientX - dx) + "px";
+        p.style.top = (e.clientY - dy) + "px";
+        p.style.right = "auto"; p.style.bottom = "auto";
+        clampPanelToViewport(p);
+      };
+      const end = (e) => {
+        header.removeEventListener("pointermove", move);
+        header.removeEventListener("pointerup", end);
+        header.removeEventListener("pointercancel", end);
+        header.classList.remove("usl-dragging");
+        try { header.releasePointerCapture(e.pointerId); } catch (err) {}
+      };
+      header.addEventListener("pointermove", move);
+      header.addEventListener("pointerup", end);
+      header.addEventListener("pointercancel", end);
+      ev.preventDefault();
+    });
+    applyPanelPlacement(p);
+  }
+  addEventListener("resize", () => { if (panelEl && panelPlacement) applyPanelPlacement(panelEl); });
   let watched = new Set(); // "UA1812|2026-07-25"
   // R23 cross-model precedence: the Guard's latest published fact for an EXACT
   // fn|date, read from the same trip store the popup renders. "no" (confirmed
@@ -913,9 +992,6 @@
 
     const p = document.createElement("div");
     p.className = "usl-panel";
-    try {
-      chrome.storage.local.get("uslCollapsed", (v) => { if (v.uslCollapsed) p.classList.add("usl-collapsed"); });
-    } catch (e) {}
     const liveRows = ranked.filter((a) => a.instrumented).length;
     // Next-gen first (Jeremy, 31 Jul): section 1 ranks the airlines in these
     // results by NEXT-GEN ODDS (chance of a Starlink / Amazon Leo aircraft,
@@ -928,7 +1004,11 @@
       return (bv - av) || a.name.localeCompare(b.name);
     });
     p.innerHTML =
-      `<header><span>🛰️ WiFi odds in these results</span><span><span class="usl-x">▾</span></span></header>` +
+      `<header><span class="usl-rt">🛰️ WiFi odds in these results</span><span class="usl-compact-title">🛰️ WiFi Odds</span>` +
+      `<span class="usl-rhs"><button type="button" class="usl-move-left" aria-label="Move panel to left" title="Move left">←</button>` +
+      `<button type="button" class="usl-move-right" aria-label="Move panel to right" title="Move right">→</button>` +
+      `<button type="button" class="usl-minimize" aria-expanded="true">Minimize</button>` +
+      `<button type="button" class="usl-open" aria-expanded="false">Open</button></span></header>` +
       `<div class="usl-body">` +
       `<p class="usl-sect">Next-gen odds · Starlink and Amazon Leo</p>` +
       byNextGen.map((a) => {
@@ -958,11 +1038,8 @@
       `<a href="https://wifiodds.com/" target="_blank" rel="noopener" style="color:#8ecdff">${esc(GF_CREDIT)} ↗</a>` +
       `</div></div>`;
     upgradePanelEvidence(p, [], null);
-    p.querySelector("header").addEventListener("click", () => {
-      p.classList.toggle("usl-collapsed");
-      try { chrome.storage.local.set({ uslCollapsed: p.classList.contains("usl-collapsed") }); } catch (e) {}
-    });
     document.documentElement.appendChild(p);
+    setupPanelControls(p);
     panelEl = p;
   }
 
@@ -1981,12 +2058,6 @@
     if (!ctx) return;
     const p = document.createElement("div");
     p.className = "usl-panel";
-    chrome.storage.local.get("uslCollapsed", (v) => {
-      if (!v.uslCollapsed) return;
-      p.classList.add("usl-collapsed");
-      const cb = p.querySelector(".usl-x");
-      if (cb) { cb.setAttribute("aria-expanded", "false"); cb.setAttribute("aria-label", "Expand panel"); }
-    });
     const hasRouteRows = !!(data && data.flights && data.flights.length);
     // Navan/Alaska rank from the on-page badges (no route table). United MERGES
     // the route-history rows with the on-page per-flight odds (mergedFlights), so
@@ -2038,9 +2109,12 @@
     const legTag = ctx.phase === "return" ? " · return leg" : "";
     p.innerHTML =
       `<header><span class="usl-rt">🛰️ ${esc(ctx.o)} → ${esc(ctx.d)} · ${esc(fmtDate(ctx.date) || "WiFi odds")}${legTag}</span>` +
-      `<span class="usl-rhs"><span class="usl-est" title="Historical Starlink tracker odds">ESTIMATES</span>` +
+      `<span class="usl-compact-title">🛰️ WiFi Odds</span><span class="usl-rhs"><span class="usl-est" title="Historical Starlink tracker odds">ESTIMATES</span>` +
       `<button type="button" class="usl-refresh" aria-label="Refresh odds (bypass cache)" title="Refresh odds (bypass cache)">↻</button>` +
-      `<button type="button" class="usl-x" aria-expanded="true" aria-label="Collapse panel" title="Collapse">▾</button></span></header>
+      `<button type="button" class="usl-move-left" aria-label="Move panel to left" title="Move left">←</button>` +
+      `<button type="button" class="usl-move-right" aria-label="Move panel to right" title="Move right">→</button>` +
+      `<button type="button" class="usl-minimize" aria-expanded="true">Minimize</button>` +
+      `<button type="button" class="usl-open" aria-expanded="false">Open</button></span></header>
       <div class="usl-body">` +
       decisionStrip(flights, sys) +
       (!watched.size ? `<p class="usl-guard-coach" role="status" aria-live="polite">Tip: use the ☆ button beside a flight to Guard its Starlink tail through boarding.</p>` : "") +
@@ -2097,20 +2171,6 @@
       (rel ? `<span style="opacity:.55"> · ✓ = confirmed Starlink tail</span>` : "") + `</div>` +
       `</div>`;
     upgradePanelEvidence(p, flights, itin);
-    // Collapse control: a real <button> carrying aria-expanded. Clicking the
-    // header title (not a button) also toggles, for mouse convenience.
-    const collapseBtn = p.querySelector(".usl-x");
-    const toggleCollapse = () => {
-      const collapsed = p.classList.toggle("usl-collapsed");
-      collapseBtn.setAttribute("aria-expanded", String(!collapsed));
-      collapseBtn.setAttribute("aria-label", collapsed ? "Expand panel" : "Collapse panel");
-      chrome.storage.local.set({ uslCollapsed: collapsed });
-    };
-    collapseBtn.addEventListener("click", (ev) => { ev.stopPropagation(); toggleCollapse(); });
-    p.querySelector("header").addEventListener("click", (ev) => {
-      if (ev.target.closest("button")) return;   // buttons handle themselves
-      toggleCollapse();
-    });
     // "Keep site order": a REAL undo. It restores the captured booking-site
     // order and persists the choice, so the page does not re-sort on the next
     // paint, reload, rerender or late score (Codex round 26, assertion 2).
@@ -2223,6 +2283,7 @@
       stripCta.textContent = "✓ " + fn + " prioritized";
     });
     document.documentElement.appendChild(p);
+    setupPanelControls(p);
     panelEl = p;
     refreshPanelTimes();
     updatePanelSortBtn();

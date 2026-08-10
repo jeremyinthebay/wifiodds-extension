@@ -62,7 +62,9 @@
   align-items: center;
   justify-content: space-between;
   padding: 12px 16px;
-  cursor: pointer;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
   font-family: "SF Mono", ui-monospace, Menlo, monospace;
   font-weight: 700;
   border-bottom: 1px solid rgba(148, 178, 255, 0.14);
@@ -83,6 +85,38 @@
 
 .usl-collapsed .usl-body {
   display: none;
+}
+
+.usl-compact-title,
+.usl-open {
+  display: none;
+}
+
+.usl-panel.usl-collapsed {
+  width: fit-content;
+  max-width: 210px;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.usl-panel.usl-collapsed header {
+  gap: 14px;
+  border-bottom: 0;
+  cursor: default;
+}
+
+.usl-collapsed .usl-rt,
+.usl-collapsed .usl-est,
+.usl-collapsed .usl-refresh,
+.usl-collapsed .usl-move-left,
+.usl-collapsed .usl-move-right,
+.usl-collapsed .usl-minimize {
+  display: none;
+}
+
+.usl-collapsed .usl-compact-title,
+.usl-collapsed .usl-open {
+  display: inline-flex;
 }
 
 .usl-x {
@@ -291,7 +325,8 @@ span.usl-watching:focus-visible{
   padding:13px 15px;border-bottom:1px solid #1c1c26;color:#f3f4f7;
 }
 .usl-panel header .usl-rt{display:flex;align-items:center;gap:2px}
-.usl-rhs{display:flex;align-items:center;gap:9px}
+.usl-panel header .usl-rt{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.usl-rhs{display:flex;align-items:center;gap:4px;flex:0 0 auto}
 .usl-est{
   font-family:"SF Mono",ui-monospace,Menlo,monospace;font-size:9px;font-weight:700;
   letter-spacing:.1em;color:#c7cbd6;border:1px solid #3a3a48;border-radius:20px;padding:2px 8px;
@@ -322,9 +357,23 @@ span.usl-watching:focus-visible{
   background:none;border:none;padding:2px 5px;margin:0;cursor:pointer;color:#7b8190;
   font:inherit;font-size:14px;line-height:1;border-radius:6px;
 }
+.usl-panel .usl-move-left,.usl-panel .usl-move-right,
+.usl-panel .usl-minimize,.usl-panel .usl-open{
+  display:inline-flex;align-items:center;justify-content:center;min-height:32px;
+  border:1px solid #3a3a48;border-radius:7px;background:#151821;color:#dfe3eb;
+  padding:4px 7px;margin:0;cursor:pointer;font:inherit;font-size:11px;line-height:1;
+}
+.usl-panel .usl-move-left,.usl-panel .usl-move-right{min-width:32px;font-size:14px}
+.usl-panel .usl-open{display:none}
+.usl-panel.usl-collapsed .usl-open{display:inline-flex}
+.usl-panel .usl-move-left:hover,.usl-panel .usl-move-right:hover,
+.usl-panel .usl-minimize:hover,.usl-panel .usl-open:hover{background:#202532;border-color:#5b6474}
+.usl-panel header.usl-dragging{cursor:grabbing}
 .usl-panel .usl-refresh:hover,.usl-panel .usl-x:hover{color:#cfd3dc}
 .usl-panel .usl-jump-control{appearance:none;background:none;border:0;color:inherit;font:inherit;text-align:left;padding:0;cursor:pointer;min-height:44px}
 .usl-panel .usl-refresh:focus-visible,.usl-panel .usl-x:focus-visible,
+.usl-panel .usl-move-left:focus-visible,.usl-panel .usl-move-right:focus-visible,
+.usl-panel .usl-minimize:focus-visible,.usl-panel .usl-open:focus-visible,
 .usl-panel .usl-jump-control:focus-visible,.usl-panel .usl-sortbtn:focus-visible,
 .usl-panel .usl-prioritize:focus-visible{
   outline:2px solid #29d8ff;outline-offset:2px;
@@ -369,6 +418,10 @@ span.usl-watching:focus-visible{
  * gutter layout (left:12/right:12/width:auto) — an unscoped .usl-panel rule
  * here would win on source order and break the 12px right gutter at 390. */
 @media (min-width:601px){.usl-panel{width:356px}}
+@media (max-width:600px){
+  .usl-panel .usl-move-left,.usl-panel .usl-move-right{display:none}
+  .usl-panel.usl-collapsed{left:auto;right:12px;width:fit-content}
+}
 .usl-panel .usl-decision{
   border:1px solid #5b6474;border-radius:14px;padding:14px;margin:0 0 12px;
   background:#0d0f16;font-family:inherit;

@@ -1053,6 +1053,97 @@ const CASES = [
     }),
   },
   {
+    // The fixed panel must be easy to get out of the way without a mouse. Its
+    // pointer drag is an enhancement; Minimize/Open and left/right docking are
+    // native keyboard controls. Movement stays page-local and never creates a
+    // stored position or dock preference.
+    name: "panel-minimize-move-controls",
+    o: "SFO", d: "DEN",
+    rows: [{ num: 1596, time: "8:30 a.m." }, { num: 1214, time: "11:05 a.m." }],
+    mock: {
+      o: "SFO", d: "DEN",
+      route: [
+        { fn: "UA1596", prob: 68, obs: 50, conf: "high" },
+        { fn: "UA1214", prob: 30, obs: 40, conf: "medium" },
+      ],
+      predict: { "UA1596": 0.68, "UA1214": 0.30 }, itins: [],
+    },
+    driver: async ({ page, url, sw }) => {
+      const before = sw ? await sw.evaluate(() => chrome.storage.local.get(null)) : {};
+      await page.goto(url, { waitUntil: "domcontentloaded" });
+      await page.waitForSelector(".usl-panel", { timeout: 30000 });
+      const controls = await page.evaluate(() => ({
+        minimize: (document.querySelector(".usl-minimize") || {}).textContent || "",
+        left: !!document.querySelector(".usl-move-left"),
+        right: !!document.querySelector(".usl-move-right"),
+      }));
+      if (!controls.minimize || !controls.left || !controls.right) return {
+        appeared: true, panelText: await page.$eval(".usl-panel", (e) => e.innerText), badges: [],
+        probe: controls,
+        checks: {
+          visibleMinimizeLabel: false,
+          compactTabAfterMinimize: false,
+          keyboardDockLeft: false,
+          keyboardDockRight: false,
+          pointerDragMovesPanel: false,
+          dragStaysInViewport: false,
+          noNewPositionStorage: true,
+        },
+      };
+
+      await page.focus(".usl-minimize");
+      await page.keyboard.press("Enter");
+      await page.waitForFunction(() => document.querySelector(".usl-panel")?.classList.contains("usl-collapsed"));
+      const collapsed = await page.evaluate(() => {
+        const panel = document.querySelector(".usl-panel").getBoundingClientRect();
+        const open = document.querySelector(".usl-open");
+        return { width: panel.width, open: open ? open.textContent.trim() : "", bodyHidden:
+          getComputedStyle(document.querySelector(".usl-body")).display === "none" };
+      });
+      await page.focus(".usl-open");
+      await page.keyboard.press("Enter");
+      await page.waitForFunction(() => !document.querySelector(".usl-panel")?.classList.contains("usl-collapsed"));
+
+      await page.focus(".usl-move-left");
+      await page.keyboard.press("Enter");
+      const left = await page.$eval(".usl-panel", (e) => e.getBoundingClientRect().toJSON());
+      await page.focus(".usl-move-right");
+      await page.keyboard.press("Enter");
+      const right = await page.$eval(".usl-panel", (e) => ({
+        ...e.getBoundingClientRect().toJSON(), vw: innerWidth,
+      }));
+
+      const handle = await page.locator(".usl-panel header .usl-rt").boundingBox();
+      if (handle) {
+        await page.mouse.move(handle.x + Math.min(50, handle.width / 2), handle.y + handle.height / 2);
+        await page.mouse.down();
+        await page.mouse.move(430, 180, { steps: 5 });
+        await page.mouse.up();
+      }
+      const dragged = await page.evaluate(() => {
+        const r = document.querySelector(".usl-panel").getBoundingClientRect();
+        return { left: r.left, top: r.top, right: r.right, bottom: r.bottom,
+          vw: innerWidth, vh: innerHeight };
+      });
+      const after = sw ? await sw.evaluate(() => chrome.storage.local.get(null)) : {};
+      const forbidden = (o) => Object.keys(o || {}).filter((k) => /position|dock|panelLeft|panelTop/i.test(k));
+      const panelText = await page.$eval(".usl-panel", (e) => e.innerText);
+      return {
+        appeared: true, panelText, badges: [], probe: { collapsed, left, right, dragged, before, after },
+        checks: {
+          visibleMinimizeLabel: controls.minimize.trim() === "Minimize",
+          compactTabAfterMinimize: collapsed.width <= 210 && collapsed.open === "Open" && collapsed.bodyHidden,
+          keyboardDockLeft: Math.abs(left.left - 12) <= 1,
+          keyboardDockRight: Math.abs(right.vw - right.right - 12) <= 1,
+          pointerDragMovesPanel: Math.abs(dragged.left - right.left) > 1 || Math.abs(dragged.top - right.top) > 1,
+          dragStaysInViewport: dragged.left >= 0 && dragged.top >= 0 &&
+            dragged.right <= dragged.vw && dragged.bottom <= dragged.vh,
+          noNewPositionStorage: forbidden(before).length === 0 && forbidden(after).length === 0,
+        },
+      };
+    },
+  },
+  {
     // v2.3 (a): CONFIDENCE ON THE BADGE. A near date (so confirmed tails are
     // relevant) plus a confirmed-departure fixture for UA1596. The badge must
     // carry the sample size the tracker returned (obs 51 → "· 51 flights") AND
