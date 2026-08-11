@@ -1988,7 +1988,11 @@
     const aria = `Best WiFi choice ${best.fn}: ${gap} points higher historical Starlink odds than ${second.fn}.` +
       (obsN ? ` ${obsN} tracked departures.` : "") + (cw ? ` ${cw}.` : "") +
       (dep ? ` Confirmed Starlink tail for ${dep.date}.` : "") +
-      ` Prioritize ${best.fn}; unscored flights remain after scored United flights.`;
+      // The carrier clause is TRUE only on the mixed-carrier host. On united.com
+      // every row is United, and on alaskaair.com every row is Alaska — saying
+      // "after scored United flights" there is meaningless in the first case and
+      // false in the second. Gated on NAVAN to match the visible button exactly.
+      ` Prioritize ${best.fn}${NAVAN ? "; unscored flights remain after scored United flights" : ""}.`;
     return `<section class="usl-decision usl-decision--winner" data-usl-state="winner" role="status"` +
       ` aria-live="${stripLive("winner")}" aria-busy="false"` +
       ` aria-label="${esc(aria)}" aria-labelledby="usl-decision-title">` +
