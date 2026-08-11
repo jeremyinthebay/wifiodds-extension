@@ -3,11 +3,15 @@ set -eu
 
 ROOT=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
 cd "$ROOT"
-META=dist/candidates/wifiodds-v3.0.1-store-bundle.candidate
+TMP=$(mktemp -d)
+trap 'rm -rf "$TMP"' EXIT
+VER=$(node -e "console.log(require('./extension/manifest.json').version)")
+TEST_DIST="$TMP/dist"
+META="$TEST_DIST/candidates/wifiodds-v${VER}-store-bundle.candidate"
 
-RELEASE_TAG=v3.0.1-determinism-control sh ./build-store-bundle.sh candidate >/dev/null
+WIFIODDS_STORE_DIST_DIR="$TEST_DIST" RELEASE_TAG="v${VER}-determinism-control" sh ./build-store-bundle.sh candidate >/dev/null
 FIRST=$(awk -F= '$1 == "ZIP_SHA256" { print $2 }' "$META")
-RELEASE_TAG=v3.0.1-determinism-control sh ./build-store-bundle.sh candidate >/dev/null
+WIFIODDS_STORE_DIST_DIR="$TEST_DIST" RELEASE_TAG="v${VER}-determinism-control" sh ./build-store-bundle.sh candidate >/dev/null
 SECOND=$(awk -F= '$1 == "ZIP_SHA256" { print $2 }' "$META")
 
 [ -n "$FIRST" ] && [ "$FIRST" = "$SECOND" ] || {

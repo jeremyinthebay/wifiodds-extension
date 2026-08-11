@@ -5,13 +5,18 @@ set -eu
 cd "$(dirname "$0")"
 ROOT=$(pwd)
 MODE=${1:-candidate}
+DIST_DIR=${WIFIODDS_STORE_DIST_DIR:-dist}
+case "$DIST_DIR" in
+  /*) ;;
+  *) DIST_DIR="$ROOT/$DIST_DIR" ;;
+esac
 VER=$(node -e "console.log(require('./extension/manifest.json').version)")
 RELEASE_TAG=${RELEASE_TAG:-v${VER}}
 ADIR=v$(printf '%s' "$VER" | cut -d. -f1,2)
-CANDIDATE_DIR=dist/candidates
+CANDIDATE_DIR="$DIST_DIR/candidates"
 CANDIDATE="$CANDIDATE_DIR/wifiodds-v${VER}-store-bundle.zip"
 META="$CANDIDATE_DIR/wifiodds-v${VER}-store-bundle.candidate"
-OUT="dist/wifiodds-v${VER}-store-bundle.zip"
+OUT="$DIST_DIR/wifiodds-v${VER}-store-bundle.zip"
 RECEIPT_DIR=${WIFIODDS_REVIEW_RECEIPT_DIR:-/Users/jeremysmith/Projects/wifiodds-relay/exchange/from-auditor}
 
 pin_value() {
@@ -49,7 +54,7 @@ promote_candidate() {
       exit 100
     }
 
-  mkdir -p dist
+  mkdir -p "$DIST_DIR"
   cp "$CANDIDATE" "$OUT"
   [ "$(shasum -a 256 "$OUT" | cut -d' ' -f1)" = "$CURRENT_ZIP_SHA" ] || {
     echo 'FAIL: promoted ZIP differs from reviewed candidate' >&2
@@ -67,11 +72,11 @@ build_candidate() {
   trap 'rm -rf "$STAGE_ROOT"' EXIT
   STAGE="$STAGE_ROOT/wifiodds-v${VER}-store-bundle"
 
-  sh ./build-store-zip.sh
+  WIFIODDS_STORE_DIST_DIR="$DIST_DIR" sh ./build-store-zip.sh
 
   mkdir -p "$STAGE/store-screenshots" "$STAGE/promo-tiles" "$CANDIDATE_DIR"
-  cp "dist/wifiodds-v${VER}.zip" "$STAGE/wifi-odds-extension-${VER}.zip"
-  cp "dist/wifiodds-v${VER}.files.sha256" "$STAGE/"
+  cp "$DIST_DIR/wifiodds-v${VER}.zip" "$STAGE/wifi-odds-extension-${VER}.zip"
+  cp "$DIST_DIR/wifiodds-v${VER}.files.sha256" "$STAGE/"
   cp "store-assets/${ADIR}/SUBMIT-${VER}.md" "$STAGE/"
   cp "store-assets/${ADIR}/real/store-1-united-1280x800.png" "$STAGE/store-screenshots/"
   cp "store-assets/${ADIR}/real/store-2-googleflights-1280x800.png" "$STAGE/store-screenshots/"
@@ -115,7 +120,7 @@ promo-tiles/store-icon-128.png"
   STAMP=$(TZ=UTC date -r "$(git show -s --format=%ct HEAD)" +%Y%m%d%H%M.%S)
   find "$STAGE" -exec touch -t "$STAMP" {} +
   rm -f "$CANDIDATE"
-  (cd "$STAGE_ROOT" && zip -r -X "$ROOT/$CANDIDATE" "$(basename "$STAGE")" >/dev/null)
+  (cd "$STAGE_ROOT" && zip -r -X "$CANDIDATE" "$(basename "$STAGE")" >/dev/null)
   ZIP_SHA256=$(shasum -a 256 "$CANDIDATE" | cut -d' ' -f1)
   cat > "$META" <<EOF
 SOURCE_SHA=$SOURCE_SHA

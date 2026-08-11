@@ -6,15 +6,16 @@ cd "$ROOT"
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 VER=$(node -e "console.log(require('./extension/manifest.json').version)")
-META="dist/candidates/wifiodds-v${VER}-store-bundle.candidate"
-CANDIDATE="dist/candidates/wifiodds-v${VER}-store-bundle.zip"
-OUT="dist/wifiodds-v${VER}-store-bundle.zip"
+TEST_DIST="$TMP/dist"
+META="$TEST_DIST/candidates/wifiodds-v${VER}-store-bundle.candidate"
+CANDIDATE="$TEST_DIST/candidates/wifiodds-v${VER}-store-bundle.zip"
+OUT="$TEST_DIST/wifiodds-v${VER}-store-bundle.zip"
 TAG="v${VER}-promotion-control"
 
-RELEASE_TAG="$TAG" sh ./build-store-bundle.sh candidate >/dev/null
+WIFIODDS_STORE_DIST_DIR="$TEST_DIST" RELEASE_TAG="$TAG" sh ./build-store-bundle.sh candidate >/dev/null
 
 set +e
-WIFIODDS_REVIEW_RECEIPT_DIR="$TMP" sh ./build-store-bundle.sh promote >/dev/null 2>&1
+WIFIODDS_STORE_DIST_DIR="$TEST_DIST" WIFIODDS_REVIEW_RECEIPT_DIR="$TMP" sh ./build-store-bundle.sh promote >/dev/null 2>&1
 NO_RECEIPT_EXIT=$?
 set -e
 [ "$NO_RECEIPT_EXIT" -eq 100 ] || {
@@ -37,7 +38,7 @@ MODEL_BLOB: $MODEL_BLOB
 ZIP_SHA256: $ZIP_SHA256
 EOF
 
-WIFIODDS_REVIEW_RECEIPT_DIR="$TMP" sh ./build-store-bundle.sh promote >/dev/null
+WIFIODDS_STORE_DIST_DIR="$TEST_DIST" WIFIODDS_REVIEW_RECEIPT_DIR="$TMP" sh ./build-store-bundle.sh promote >/dev/null
 PROMOTED_SHA=$(shasum -a 256 "$OUT" | cut -d' ' -f1)
 [ "$PROMOTED_SHA" = "$ZIP_SHA256" ] || {
   echo "FAIL: promoted hash $PROMOTED_SHA differs from reviewed hash $ZIP_SHA256" >&2

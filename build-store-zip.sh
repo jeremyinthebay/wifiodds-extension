@@ -7,13 +7,18 @@
 # from the same commit by sorting file names and setting each timestamp from the
 # source commit. The per-file manifest also proves content identity.
 set -e
+ROOT=$(pwd)
+DIST_DIR=${WIFIODDS_STORE_DIST_DIR:-dist}
+case "$DIST_DIR" in
+  /*) ;;
+  *) DIST_DIR="$ROOT/$DIST_DIR" ;;
+esac
 VER=$(node -e "console.log(require('./extension/manifest.json').version)")
 SHA=$(git rev-parse --short HEAD)
-OUT="dist/wifiodds-v${VER}.zip"
-MAN="dist/wifiodds-v${VER}.files.sha256"
-mkdir -p dist
+OUT="$DIST_DIR/wifiodds-v${VER}.zip"
+MAN="$DIST_DIR/wifiodds-v${VER}.files.sha256"
+mkdir -p "$DIST_DIR"
 rm -f "$OUT" "$MAN"
-ROOT=$(pwd)
 TMP=$(mktemp -d)
 LIST=$(mktemp)
 trap 'rm -rf "$TMP"; rm -f "$LIST"' EXIT
@@ -22,7 +27,7 @@ STAMP=$(TZ=UTC date -r "$(git show -s --format=%ct HEAD)" +%Y%m%d%H%M.%S)
 find "$TMP" -exec touch -t "$STAMP" {} +
 (cd "$TMP" && find . -type f > "$LIST")
 LC_ALL=C sort -o "$LIST" "$LIST"
-(cd "$TMP" && zip -q -X "$ROOT/$OUT" -@ < "$LIST")
+(cd "$TMP" && zip -q -X "$OUT" -@ < "$LIST")
 echo "built $OUT from commit $SHA"
 
 # unpack and verify
