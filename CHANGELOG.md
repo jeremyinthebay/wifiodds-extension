@@ -9,6 +9,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [3.0.2] - 2026-08-10
+
+Chrome Web Store: not uploaded.
+
 ### Fixed
 
 - The on-page panel now closes when Navan leaves flight results, including during seat selection.
@@ -17,7 +21,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [3.0.1] - 2026-08-03
 
-Chrome Web Store: not uploaded.
+Chrome Web Store: uploaded 2026-08-10; publication could not verify.
 
 ### Added
 
@@ -111,7 +115,8 @@ Chrome Web Store: published 2026-07-28.
 - Renamed the extension to WiFi Odds for Flights and expanded it from a United-only companion into
   a multi-airline WiFi decision tool.
 
-[Unreleased]: https://github.com/jeremyinthebay/wifiodds-extension/compare/v3.0.1...HEAD
+[Unreleased]: https://github.com/jeremyinthebay/wifiodds-extension/compare/v3.0.2...HEAD
+[3.0.2]: https://github.com/jeremyinthebay/wifiodds-extension/compare/v3.0.1...v3.0.2
 [3.0.1]: https://github.com/jeremyinthebay/wifiodds-extension/compare/v3.0.0...v3.0.1
 [3.0.0]: https://github.com/jeremyinthebay/wifiodds-extension/compare/v2.2.0...v3.0.0
 [2.2.0]: https://github.com/jeremyinthebay/wifiodds-extension/compare/v2.1.0...v2.2.0
