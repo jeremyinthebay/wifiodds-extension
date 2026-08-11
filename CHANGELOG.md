@@ -21,7 +21,7 @@ Chrome Web Store: not uploaded.
 
 ## [3.0.1] - 2026-08-03
 
-Chrome Web Store: uploaded 2026-08-10; publication could not verify.
+Chrome Web Store: uploaded 2026-08-04; publication could not verify.
 
 ### Added
 
