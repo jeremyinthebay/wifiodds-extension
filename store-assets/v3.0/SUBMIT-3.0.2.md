@@ -32,7 +32,7 @@ odds by default. Sorting can be turned off in Settings. The visible “Keep site
 restores the booking site's order.
 
 On mixed-carrier Navan results, the booking site's order stays in place until the traveler chooses
-to prioritize or move scored United flights. Other airlines are unscored—unknown, not worse—and
+to prioritize or move scored United flights. Other airlines are unscored (unknown, not worse) and
 keep their relative order. Google Flights is never reordered. Sorting does not change fares,
 selections, booking controls, or navigation.
 
