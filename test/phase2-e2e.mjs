@@ -150,6 +150,13 @@ const MUTATIONS = {
     expect: "alaska-no-united-action",
     note: "the Alaska-only page offers a United-labelled carrier action",
   },
+  "alaska-winner-aria-says-united": {
+    file: "content.js",
+    from: '${NAVAN ? "; unscored flights remain after scored United flights" : ""}',
+    to: '${"; unscored flights remain after scored United flights"}',
+    expect: "alaska-no-united-action",
+    note: "Alaska winner accessibility text regains a United-only remainder clause",
+  },
   "guard-span-control": {
     file: "content.js",
     from: 'const w = document.createElement("button");',
@@ -2385,12 +2392,14 @@ const CASES = [
       await page.waitForFunction(() => /AS1/.test((document.querySelector(".usl-panel") || {}).innerText || ""), null, { timeout: 25000 });
       const out = await page.evaluate(() => ({
         text: document.querySelector(".usl-panel").innerText,
+        decisionAria: (document.querySelector(".usl-decision") || {}).getAttribute?.("aria-label") || "",
         carrierAction: !!document.querySelector(".usl-prioritize"),
         sorted: !!document.querySelector(".usl-sorted"),
       }));
       return { appeared: true, panelText: out.text, badges: [], probe: out, checks: {
         alaskaFlightsRendered: /AS1/.test(out.text) && /AS7/.test(out.text),
         noUnitedCarrierAction: out.carrierAction === false && !/Prioritize United flights/.test(out.text),
+        noUnitedClauseInAlaskaAria: !/United flights/.test(out.decisionAria),
         singleCarrierPathStillWorks: /NEXT-GEN ODDS/.test(out.text),
       } };
     },
