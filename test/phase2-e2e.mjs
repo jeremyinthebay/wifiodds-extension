@@ -167,7 +167,7 @@ const MUTATIONS = {
   "streaming-score-uses-coverage-floor": {
     file: "content.js",
     from: "v.textContent = String(entry.score);",
-    to: "v.textContent = String(entry.streamingCoverageFloor);",
+    to: "v.textContent = String((entry.ledger.rows.reduce((sum, row) => sum + (row.qMin >= 0.55 ? row.n : 0), 0) / entry.ledger.total) * 100);",
     expect: "streaming-value-parity",
     note: "Streaming score is replaced with Confirmed streaming coverage",
   },
@@ -2343,9 +2343,10 @@ const CASES = [
     },
   },
   {
-    // Streaming is the 0–100 score from scoreAirline(), never an equipped or
-    // coverage percentage. The fixture reads scoreAirline in the loaded popup
-    // and the visible value from the separate isolated content-script world.
+    // Streaming is the 0–100 score from scoreAirline(), never the Confirmed
+    // streaming coverage percentage. Derive that percentage directly from the
+    // pinned ledger rows so this check cannot add a field to generated parity
+    // bytes. Keep the raw fraction: Southwest is 1 / 803, not a rounded zero.
     name: "streaming-value-parity",
     o: "SFO", d: "DEN",
     rows: [{ num: 1596, time: "8:30 a.m." }],
@@ -2355,15 +2356,27 @@ const CASES = [
       await page.waitForFunction(() => typeof scoreAirline === "function", null, { timeout: 15000 });
       const fixture = await page.evaluate(() => {
         const a = scoreAirline("united");
-        return { score: a.score, streamingCoverageFloor: a.streamingCoverageFloor };
+        const rawConfirmedStreamingPct = (airline) => {
+          const ledger = airline && airline.ledger;
+          if (!ledger || !Array.isArray(ledger.rows) || !(ledger.total > 0)) return null;
+          const confirmed = ledger.rows.reduce((sum, row) => sum + (row.qMin >= 0.55 ? row.n : 0), 0);
+          return (confirmed / ledger.total) * 100;
+        };
+        return {
+          score: a.score,
+          confirmedStreamingPct: rawConfirmedStreamingPct(a),
+          southwestConfirmedStreamingPct: rawConfirmedStreamingPct(scoreAirline("southwest")),
+        };
       });
       await page.goto(url, { waitUntil: "domcontentloaded" });
       await page.waitForSelector(".usl-stream__value", { timeout: 30000 });
       const visible = await page.$eval(".usl-stream__value", (e) => e.textContent || "");
       return { appeared: true, panelText: visible, badges: [], probe: { fixture, visible }, checks: {
         renderedEqualsScoreAirline: visible === String(fixture.score),
-        renderedDoesNotUseConfirmedStreamingCoverage: Number.isFinite(fixture.streamingCoverageFloor) &&
-          visible !== String(fixture.streamingCoverageFloor),
+        renderedDoesNotUseConfirmedStreamingCoverage: Number.isFinite(fixture.confirmedStreamingPct) &&
+          Number(visible) !== fixture.confirmedStreamingPct,
+        southwestCoverageRetainsRawSubPercentValue: fixture.southwestConfirmedStreamingPct > 0.1 &&
+          fixture.southwestConfirmedStreamingPct < 0.2,
       } };
     },
   },

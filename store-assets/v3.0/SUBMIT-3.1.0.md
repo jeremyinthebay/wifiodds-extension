@@ -42,9 +42,10 @@ Upload `wifi-odds-extension-3.1.0.zip` from the reviewed handoff bundle only.
   traveler Guards, it sends that flight number and date on the periodic assignment-check schedule.
   United lookups use unitedstarlinktracker.com and Alaska lookups use alaskastarlinktracker.com.
   Local odds cache, preferences, guarded trips, bounded Guard-time alternatives, and post-flight
-  worked/didn't-work answers stay on the device. Guard data is cleared after departure or when the
-  traveler removes the trip. The extension never sends fares, times, page markup, account data, or
-  URLs to those trackers.
+  worked/didn't-work answers stay on the device. The bounded Guard-time alternatives clear after
+  departure. An unanswered trip expires 30 days after departure. Answered trips and local outcome
+  history stay until the traveler removes them. The extension never sends fares, times, page markup,
+  account data, or URLs to those trackers.
 
   Per-flight odds come from the community trackers at unitedstarlinktracker.com and
   alaskastarlinktracker.com. WiFi Odds is unofficial and is not affiliated with United, Alaska,
@@ -100,9 +101,10 @@ community tracker for odds lookups. A guarded trip sends its flight number and d
 periodic assignment-check schedule. These requests go to `unitedstarlinktracker.com` for United or
 `alaskastarlinktracker.com` for Alaska. Device-local data includes the odds cache, preferences,
 guarded trips, bounded Guard-time alternatives, and post-flight outcome answers. The extension
-keeps those data on the device and clears Guard data after departure or trip removal. It does not
-send fares, times, page markup, account data, or URLs, and it uses no account, analytics,
-advertising identifier, or third-party tracking.
+keeps those data on the device. Bounded Guard-time alternatives clear after departure. An unanswered
+trip expires 30 days after departure, while answered trips and local outcome history remain until
+the traveler removes them. It does not send fares, times, page markup, account data, or URLs, and
+it uses no account, analytics, advertising identifier, or third-party tracking.
 
 No permission, host, stored field, collection, transmission, retention, or privacy-policy URL
 changes in v3.1.0.
