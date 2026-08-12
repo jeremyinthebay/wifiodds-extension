@@ -173,10 +173,10 @@ const MUTATIONS = {
   },
   "streaming-terminology-reverted": {
     file: "content.js",
-    from: 'w.textContent = "Streaming score";',
-    to: 'w.textContent = "ConnectScore";',
+    from: 'ti: a.name + " · Streaming score " + a.score + " out of 100 (" + a.label + ") — " +',
+    to: 'ti: a.name + " · ConnectScore " + a.score + " out of 100 (" + a.label + ") — " +',
     expect: "streaming-terminology-sweep",
-    note: "a rendered Streaming label regresses to the retired customer term",
+    note: "the Google Streaming tooltip regresses to the retired customer term",
   },
   "guard-span-control": {
     file: "content.js",
@@ -2369,29 +2369,31 @@ const CASES = [
   },
   {
     name: "streaming-terminology-sweep",
-    google: true, o: "SFO", d: "DEN", rows: [], mock: {},
+    google: true, googleFlights: true,
+    googleUrl: "https://www.google.com/travel/flights/search", o: "SFO", d: "DEN", rows: [],
+    mock: { predict: { UA1596: { p: 0.68, obs: 51, conf: "high" } }, route: [], itins: [] },
     driver: async ({ page, context, extId }) => {
-      await page.goto("chrome-extension://" + extId + "/popup.html", { waitUntil: "domcontentloaded" });
-      await page.locator("#usl-cs").evaluate((e) => { e.open = true; });
-      await page.waitForSelector(".usl-cs-chip", { timeout: 15000 });
-      const popupText = await page.locator("body").innerText();
-      const popupOld = /ConnectScore/i.test(popupText);
-      const evidence = page.locator('[data-evidence-kind="connectscore"]').first();
-      await evidence.click();
-      const drawer = await page.locator("[popover]").first().innerText();
-      await page.keyboard.press("Escape");
-      await page.goto("chrome-extension://" + extId + "/coverage.html", { waitUntil: "domcontentloaded" });
-      const coverageText = await page.locator("body").innerText();
-      const google = await context.newPage();
-      await google.goto("https://www.google.com/travel/flights", { waitUntil: "domcontentloaded" });
-      await google.waitForSelector(".usl-gf-chip", { timeout: 30000 });
-      const chip = await google.locator(".usl-gf-chip.usl-gf-cs").first();
+      await page.goto("https://www.google.com/travel/flights/search", { waitUntil: "domcontentloaded" });
+      await page.waitForSelector(".usl-gf-chip.usl-gf-cs", { timeout: 30000 });
+      const chip = page.locator(".usl-gf-chip.usl-gf-cs").first();
       const chipText = await chip.innerText();
       const chipTooltip = await chip.getAttribute("title");
-      await google.close();
+      const popup = await context.newPage();
+      await popup.goto("chrome-extension://" + extId + "/popup.html", { waitUntil: "domcontentloaded" });
+      await popup.locator("#usl-cs").evaluate((e) => { e.open = true; });
+      await popup.waitForSelector(".usl-cs-chip", { timeout: 15000 });
+      const popupText = await popup.locator("body").innerText();
+      const popupOld = /ConnectScore/i.test(popupText);
+      const evidence = popup.locator('[data-evidence-kind="connectscore"]').first();
+      await evidence.click();
+      const drawer = await popup.locator("[popover]").first().innerText();
+      await popup.keyboard.press("Escape");
+      await popup.goto("chrome-extension://" + extId + "/coverage.html", { waitUntil: "domcontentloaded" });
+      const coverageText = await popup.locator("body").innerText();
+      await popup.close();
       const combined = [popupText, drawer, coverageText, chipText, chipTooltip || ""].join("\n");
       return { appeared: true, panelText: combined, badges: [], probe: { popupText, drawer, coverageText, chipText, chipTooltip }, checks: {
-        popupUsesStreaming: /WiFi odds by airline \(Streaming score\)/.test(popupText),
+        popupUsesStreaming: /WiFi odds by airline \(Streaming score\)/i.test(popupText),
         googleChipUsesStreaming: /STREAMING/.test(chipText) && /Streaming score \d+ out of 100/.test(chipTooltip || ""),
         evidenceUsesStreaming: /Streaming score/.test(drawer),
         coverageUsesStreaming: /Recognized airlines get a Streaming score/.test(coverageText),

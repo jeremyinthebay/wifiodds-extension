@@ -46,6 +46,8 @@ const MATRIX = {
   "alaska-united-action":   { only: "alaska-no-united-action", expect: "alaska-no-united-action" },
   "alaska-winner-aria-says-united": { only: "alaska-no-united-action", expect: "alaska-no-united-action" },
   "navan-winner-aria-clause-removed": { only: "navan-prioritize-explicit-action", expect: "navan-prioritize-explicit-action" },
+  "streaming-score-uses-coverage-floor": { only: "streaming-value-parity", expect: "streaming-value-parity" },
+  "streaming-terminology-reverted": { only: "streaming-terminology-sweep", expect: "streaming-terminology-sweep" },
   "guard-span-control":     { only: "guard-keyboard-roundtrip", expect: "guard-keyboard-roundtrip" },
   "guard-add-no-rollback":  { only: "guard-add-failure-rolls-back", expect: "guard-add-failure-rolls-back" },
   "gold-policy-claim":      { only: "guard-shortlist-capture", expect: "guard-shortlist-capture" },
@@ -76,7 +78,7 @@ const MATRIX = {
   "first-run-no-permission-request": { gate: FIRST_RUN_GATE, only: "first-run-coverage", expect: "first-run-coverage" },
   "first-run-add-tabs-permission": { gate: FIRST_RUN_GATE, only: "first-run-coverage", expect: "first-run-coverage" },
 };
-const CONTROLS_EXPECTED = 48;
+const CONTROLS_EXPECTED = 50;
 
 // Owner ruling, 3 Aug 2026: keep these honest-degradation states, but never
 // manufacture a green mutation result for branches no supported host can
@@ -91,6 +93,11 @@ const UNTESTABLE = {
 };
 const UNTESTABLE_MUTATIONS_EXPECTED = 1;
 const UNTESTABLE_STATES_EXPECTED = 4;
+const selectedNames = Object.keys(MATRIX).filter((name) => !ONLY || ONLY.test(name));
+if (ONLY && selectedNames.length === 0) {
+  process.stderr.write(`MUTATION_ONLY matched no registered mutations: ${process.env.MUTATION_ONLY}\n`);
+  process.exit(2);
+}
 
 let broken = 0;
 const rows = [];
@@ -127,7 +134,7 @@ for (const [name, item] of untestableEntries) {
     `definitions=${statesDefined ? "live" : "MISSING"} anchor=${anchorLive ? "live" : "MISSING"} · ${item.reason}\n`);
 }
 for (const [name, m] of Object.entries(MATRIX)) {
-  if (ONLY && !ONLY.test(name)) continue;
+  if (!selectedNames.includes(name)) continue;
   process.stderr.write(`\n══ mutation ${name} ══\n`);
   const r = spawnSync(process.execPath, [m.gate || GATE], {
     env: { ...process.env, E2E_MUT: name, E2E_ONLY: m.only },
@@ -145,7 +152,7 @@ for (const [name, m] of Object.entries(MATRIX)) {
 }
 process.stderr.write("\nMUTATION MATRIX: " +
   (broken ? broken + " mutation(s) NOT caught — instrument broken" : "all " + rows.length + " mutations caught") + "\n");
-const expectedCount = ONLY ? Object.keys(MATRIX).filter((name) => ONLY.test(name)).length : CONTROLS_EXPECTED;
+const expectedCount = ONLY ? selectedNames.length : CONTROLS_EXPECTED;
 if (rows.length !== expectedCount) {
   broken++;
   process.stderr.write(`CONTROL COUNT MISMATCH: expected ${expectedCount}, observed ${rows.length}; a named mutation is missing\n`);

@@ -1,7 +1,6 @@
-// Provisional 3.1 capture pipeline. Run only from a clean committed candidate.
-// It runs the deterministic browser suite, then stages four host fixtures outside
-// release assets. The release packet records SHA and timestamps before anyone
-// can copy reviewed files into store-assets/v3.0/real/.
+// Provisional 3.1 capture pipeline. It runs from the current worktree, then
+// stages four host fixtures outside release assets. It does not establish a
+// committed candidate, model pin, or review receipt.
 import { spawnSync } from "node:child_process";
 import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -33,6 +32,6 @@ for (const [target, source] of Object.entries(shots)) {
 }
 writeFileSync(join(OUT, "PROVENANCE.md"),
   "# Provisional v3.1 Store screenshots\n\n" +
-  "Generated from a clean committed candidate by `node test/store-screenshots-v3.1.mjs`.\n" +
-  "These files are not final Store assets. Record the source SHA, exact model pin, capture time, and Claude receipt before promotion.\n");
+  "Generated from the current worktree after `node test/phase2-e2e.mjs`.\n" +
+  "This script does not prove a committed candidate, model pin, or review receipt. These files are not final Store assets. Record the source SHA, exact model pin, capture time, and Claude receipt before promotion.\n");
 process.stderr.write("wrote provisional 3.1 screenshots to test/out/store-v3.1-provisional/\n");

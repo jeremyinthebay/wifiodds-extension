@@ -22,4 +22,5 @@ dashboard source of truth.
 4. Save the draft, inspect Chrome's change summary, and submit it yourself.
 5. Report upload, submission, approval, and publication as separate states.
 
-The Chrome Web Store description must continue to match `extension/manifest.json` exactly.
+The Chrome Web Store summary must continue to match `extension/manifest.json` exactly. The longer
+Store description belongs in the submission package.

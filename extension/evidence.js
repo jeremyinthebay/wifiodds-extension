@@ -175,6 +175,7 @@ var USLEvidence = (function () {
       trigger.className = element.className;
       trigger.textContent = element.textContent;
       if (element.id) trigger.id = element.id;
+      if (element.title) trigger.title = element.title;
       for (var i = 0; i < element.attributes.length; i++) {
         var attr = element.attributes[i];
         if (attr.name.indexOf("data-") === 0) trigger.setAttribute(attr.name, attr.value);
