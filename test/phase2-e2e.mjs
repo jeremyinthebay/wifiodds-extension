@@ -164,6 +164,20 @@ const MUTATIONS = {
     expect: "navan-prioritize-explicit-action",
     note: "Navan loses the United-only remainder clause from its sorting action",
   },
+  "streaming-score-uses-coverage-floor": {
+    file: "content.js",
+    from: "v.textContent = String(entry.score);",
+    to: "v.textContent = String(entry.streamingCoverageFloor);",
+    expect: "streaming-value-parity",
+    note: "Streaming score is replaced with Confirmed streaming coverage",
+  },
+  "streaming-terminology-reverted": {
+    file: "content.js",
+    from: 'w.textContent = "Streaming score";',
+    to: 'w.textContent = "ConnectScore";',
+    expect: "streaming-terminology-sweep",
+    note: "a rendered Streaming label regresses to the retired customer term",
+  },
   "guard-span-control": {
     file: "content.js",
     from: 'const w = document.createElement("button");',
@@ -1350,7 +1364,7 @@ const CASES = [
       await page.waitForTimeout(2600);
       const corrected = await page.evaluate(orderProbe);
       const panelText = await page.$eval(".usl-panel", (e) => e.innerText).catch(() => "");
-      const navanDecisionAria = await page.$eval(".usl-decision", (e) => e.getAttribute("aria-label") || "").catch(() => "");
+      const navanDecisionName = await page.locator(".usl-decision").ariaSnapshot().catch(() => "");
       const badges = await page.$$eval(".usl-badge", (els) => els.map((e) => e.textContent.trim()));
       // R23: the mixed-carrier coverage boundary appears exactly ONCE, states
       // the honest Navan coverage (United only is scored there), and no
@@ -1390,9 +1404,9 @@ const CASES = [
         streamingVisible: /streaming/i.test(panelText),
         streamingDescribesScale: /streaming[^\n]*out of 100/i.test(panelText),
         noVisibleConnectScore: !/connectscore/i.test(panelText),
-        navanRetainsUnscoredUnitedClause: /unscored flights remain after scored United flights/.test(navanDecisionAria),
+        navanComputedNameRetainsUnscoredUnitedClause: /unscored flights remain after scored United flights/.test(navanDecisionName),
       };
-      return { appeared: true, panelText, badges, probe: { pre: P, post: Q, corrected: C }, checks };
+      return { appeared: true, panelText, badges, probe: { pre: P, post: Q, corrected: C, navanDecisionName }, checks };
     },
   },
   {
@@ -2341,14 +2355,47 @@ const CASES = [
       await page.waitForFunction(() => typeof scoreAirline === "function", null, { timeout: 15000 });
       const fixture = await page.evaluate(() => {
         const a = scoreAirline("united");
-        return { score: a.score, coveragePct: a.coveragePct };
+        return { score: a.score, streamingCoverageFloor: a.streamingCoverageFloor };
       });
       await page.goto(url, { waitUntil: "domcontentloaded" });
       await page.waitForSelector(".usl-stream__value", { timeout: 30000 });
       const visible = await page.$eval(".usl-stream__value", (e) => e.textContent || "");
       return { appeared: true, panelText: visible, badges: [], probe: { fixture, visible }, checks: {
         renderedEqualsScoreAirline: visible === String(fixture.score),
-        renderedDoesNotUseCoverageFloor: visible !== String(fixture.coveragePct),
+        renderedDoesNotUseConfirmedStreamingCoverage: Number.isFinite(fixture.streamingCoverageFloor) &&
+          visible !== String(fixture.streamingCoverageFloor),
+      } };
+    },
+  },
+  {
+    name: "streaming-terminology-sweep",
+    google: true, o: "SFO", d: "DEN", rows: [], mock: {},
+    driver: async ({ page, context, extId }) => {
+      await page.goto("chrome-extension://" + extId + "/popup.html", { waitUntil: "domcontentloaded" });
+      await page.locator("#usl-cs").evaluate((e) => { e.open = true; });
+      await page.waitForSelector(".usl-cs-chip", { timeout: 15000 });
+      const popupText = await page.locator("body").innerText();
+      const popupOld = /ConnectScore/i.test(popupText);
+      const evidence = page.locator('[data-evidence-kind="connectscore"]').first();
+      await evidence.click();
+      const drawer = await page.locator("[popover]").first().innerText();
+      await page.keyboard.press("Escape");
+      await page.goto("chrome-extension://" + extId + "/coverage.html", { waitUntil: "domcontentloaded" });
+      const coverageText = await page.locator("body").innerText();
+      const google = await context.newPage();
+      await google.goto("https://www.google.com/travel/flights", { waitUntil: "domcontentloaded" });
+      await google.waitForSelector(".usl-gf-chip", { timeout: 30000 });
+      const chip = await google.locator(".usl-gf-chip.usl-gf-cs").first();
+      const chipText = await chip.innerText();
+      const chipTooltip = await chip.getAttribute("title");
+      await google.close();
+      const combined = [popupText, drawer, coverageText, chipText, chipTooltip || ""].join("\n");
+      return { appeared: true, panelText: combined, badges: [], probe: { popupText, drawer, coverageText, chipText, chipTooltip }, checks: {
+        popupUsesStreaming: /WiFi odds by airline \(Streaming score\)/.test(popupText),
+        googleChipUsesStreaming: /STREAMING/.test(chipText) && /Streaming score \d+ out of 100/.test(chipTooltip || ""),
+        evidenceUsesStreaming: /Streaming score/.test(drawer),
+        coverageUsesStreaming: /Recognized airlines get a Streaming score/.test(coverageText),
+        oldCustomerTermAbsent: !/ConnectScore/i.test(combined),
       } };
     },
   },
@@ -2430,14 +2477,14 @@ const CASES = [
       await page.waitForFunction(() => /AS1/.test((document.querySelector(".usl-panel") || {}).innerText || ""), null, { timeout: 25000 });
       const out = await page.evaluate(() => ({
         text: document.querySelector(".usl-panel").innerText,
-        decisionAria: (document.querySelector(".usl-decision") || {}).getAttribute?.("aria-label") || "",
         carrierAction: !!document.querySelector(".usl-prioritize"),
         sorted: !!document.querySelector(".usl-sorted"),
       }));
+      out.decisionName = await page.locator(".usl-decision").ariaSnapshot().catch(() => "");
       return { appeared: true, panelText: out.text, badges: [], probe: out, checks: {
         alaskaFlightsRendered: /AS1/.test(out.text) && /AS7/.test(out.text),
         noUnitedCarrierAction: out.carrierAction === false && !/Prioritize United flights/.test(out.text),
-        noUnitedClauseInAlaskaAria: !/United flights/.test(out.decisionAria),
+        noUnitedClauseInAlaskaComputedName: !/United flights/.test(out.decisionName),
         singleCarrierPathStillWorks: /NEXT-GEN ODDS/.test(out.text),
       } };
     },

@@ -1995,7 +1995,7 @@
       ` Prioritize ${best.fn}${NAVAN ? "; unscored flights remain after scored United flights" : ""}.`;
     return `<section class="usl-decision usl-decision--winner" data-usl-state="winner" role="status"` +
       ` aria-live="${stripLive("winner")}" aria-busy="false"` +
-      ` aria-label="${esc(aria)}" aria-labelledby="usl-decision-title">` +
+      ` aria-label="${esc(aria)}">` +
       `<div class="usl-decision__top">` +
         `<p class="usl-decision__kicker">Best WiFi choice</p>` +
         `<span class="usl-badge ${cls(best.prob)}" data-evidence-fn="${esc(best.fn)}">${best.prob}%</span>` +

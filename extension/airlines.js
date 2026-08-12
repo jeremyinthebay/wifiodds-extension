@@ -1590,6 +1590,19 @@ function scoreEntry(entry) {
   };
 }
 
+/* Confirmed streaming coverage is a separate evidence percentage. It counts
+ * each segment whose conservative quality clears STREAMING_MIN_Q and uses the
+ * same whole-fleet denominator as the public score. It must never rank or
+ * replace the score. */
+function streamingCoverageFloor(entry) {
+  const L = ledgerFor(entry);
+  if (!L) return scoreEntry(entry).score;
+  const confirmed = L.rows.reduce(function (sum, row) {
+    return sum + (row.qMin >= STREAMING_MIN_Q ? row.n : 0);
+  }, 0);
+  return L.total > 0 ? Math.round((confirmed / L.total) * 100) : 0;
+}
+
 /* scoreAirline(key) → {key, name, score, floor, ceiling, ledger, …} or null. */
 function scoreAirline(key) {
   const entry = WIFI_AIRLINES[key];
@@ -1642,6 +1655,7 @@ function scoreAirline(key) {
     connectScoreLower: s.floor,
     connectScoreUpper: s.ceiling,
     scoreExact: s.scoreExact,
+    streamingCoverageFloor: streamingCoverageFloor(entry),
     coverage: typeof s.coverage === "number" ? s.coverage : 1,
     coveragePct: Math.round((typeof s.coverage === "number" ? s.coverage : 1) * 100),
     total: s.total != null ? s.total : (L ? L.total : (typeof entry.fleet === "number" ? entry.fleet : null)),
