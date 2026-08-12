@@ -157,6 +157,13 @@ const MUTATIONS = {
     expect: "alaska-no-united-action",
     note: "Alaska winner accessibility text regains a United-only remainder clause",
   },
+  "navan-winner-aria-clause-removed": {
+    file: "content.js",
+    from: '${NAVAN ? "; unscored flights remain after scored United flights" : ""}',
+    to: '${""}',
+    expect: "navan-prioritize-explicit-action",
+    note: "Navan loses the United-only remainder clause from its sorting action",
+  },
   "guard-span-control": {
     file: "content.js",
     from: 'const w = document.createElement("button");',
@@ -616,6 +623,7 @@ function stripProbe() {
       text: (m.innerText || m.textContent || "").replace(/\s+/g, " ").trim(),
       state: m.dataset.ngState || null,
       aria: m.getAttribute("aria-label") || "",
+      streamingValue: (m.querySelector(".usl-stream__value") || {}).textContent || "",
       confirm: !!m.querySelector(".usl-confirm"),
       rampOnValue: !!m.querySelector(".usl-ng__value.usl-badge"),
       nextEvidence: (() => { const e = m.querySelector(".usl-ng"); return e ? {
@@ -1047,16 +1055,18 @@ const CASES = [
       noFreshnessClaim: !/Updated|updated|fresh|Fresh|recent|Recent|today|Today/.test(txt),
       noFalseConfirmToken: !!strip && strip.confirmInStrip === false,
       // Product rules (Jeremy, 31 Jul): the carrier-framed button never renders
-      // on united.com, and the panel is next-gen FIRST with the streaming-class
-      // ConnectScore section labelled below it.
+      // on united.com, and the panel is next-gen FIRST with the Streaming
+      // section labelled below it.
       noCarrierButtonOnUnited: !!strip && strip.prioritizeBtn === false,
       nextGenSectionLabelled: /next-gen odds/i.test(txt),
       nextGenFirstThenStreaming: (() => {
         const t = txt.toLowerCase();
-        const a = t.indexOf("next-gen odds"), b = t.indexOf("streaming-class");
+        const a = t.indexOf("next-gen odds"), b = t.indexOf("streaming");
         return a >= 0 && b > a;
       })(),
-      streamingShowsConnectScore: /connectscore/i.test(txt),
+      streamingVisible: /streaming/i.test(txt),
+      streamingDescribesScale: /streaming[^\n]*out of 100/i.test(txt),
+      noVisibleConnectScore: !/connectscore/i.test(txt),
     }),
   },
   {
@@ -1178,10 +1188,10 @@ const CASES = [
       return {
         valueLabelledNextGen: /NEXT-GEN 68%/.test(g.text || ""),
         evidenceOutsideValue: /68% 51 tracked/.test(g.text || ""),
-        streamingSecondary: /STREAMING 42 ConnectScore/.test(g.text || ""),
+        streamingSecondary: /STREAMING 42 Streaming score/.test(g.text || ""),
         rampOnRealProbability: g.rampOnValue === true,
         confirmTokenSeparate: g.confirm === true,
-        fullAccessibleSentence: /68% historical per-flight next-gen odds from 51 tracked departures\. High confidence\. Evidence: REPORTED · unitedstarlinktracker\.com · source date not provided\. Streaming-class ConnectScore 42 out of 100\. Evidence: MODELLED · wifiodds\.com frozen fleet-source ledger · 2026-07/.test(g.aria || ""),
+        fullAccessibleSentence: /68% historical per-flight next-gen odds from 51 tracked departures\. High confidence\. Evidence: REPORTED · unitedstarlinktracker\.com · source date not provided\. Streaming score 42 out of 100 across this airline's fleet\. Evidence: MODELLED · wifiodds\.com frozen fleet-source ledger · 2026-07/.test(g.aria || ""),
         accessibleCarriesExactDate: /Confirmed Starlink tail N127UA for \d{4}-\d{2}-\d{2}/.test(g.aria || ""),
         panelRowShowsSampleSize: /51 flights/.test(txt),
         stripConfirmSeparateFact: /✓ Confirmed for \d{4}-\d{2}-\d{2}/.test(txt),
@@ -1340,6 +1350,7 @@ const CASES = [
       await page.waitForTimeout(2600);
       const corrected = await page.evaluate(orderProbe);
       const panelText = await page.$eval(".usl-panel", (e) => e.innerText).catch(() => "");
+      const navanDecisionAria = await page.$eval(".usl-decision", (e) => e.getAttribute("aria-label") || "").catch(() => "");
       const badges = await page.$$eval(".usl-badge", (els) => els.map((e) => e.textContent.trim()));
       // R23: the mixed-carrier coverage boundary appears exactly ONCE, states
       // the honest Navan coverage (United only is scored there), and no
@@ -1370,13 +1381,16 @@ const CASES = [
         boundaryHonestCoverage: /Coverage: United\. Other airlines stay unscored and keep the booking site's order\./.test(panelText),
         unsupportedCarriersUnbadged: unsupportedBadged === false,
         manualSortHasNoAutoCue: !/Automatic on single-airline results/.test(panelText),
-        // Next-gen first, streaming-class ConnectScore second (Jeremy, 31 Jul).
+        // Next-gen first, Streaming second (Jeremy, 31 Jul).
         nextGenFirstThenStreaming: (() => {
           const t = panelText.toLowerCase();
-          const a = t.indexOf("next-gen odds"), b = t.indexOf("streaming-class");
+          const a = t.indexOf("next-gen odds"), b = t.indexOf("streaming");
           return a >= 0 && b > a;
         })(),
-        streamingShowsConnectScore: /connectscore/i.test(panelText),
+        streamingVisible: /streaming/i.test(panelText),
+        streamingDescribesScale: /streaming[^\n]*out of 100/i.test(panelText),
+        noVisibleConnectScore: !/connectscore/i.test(panelText),
+        navanRetainsUnscoredUnitedClause: /unscored flights remain after scored United flights/.test(navanDecisionAria),
       };
       return { appeared: true, panelText, badges, probe: { pre: P, post: Q, corrected: C }, checks };
     },
@@ -2298,9 +2312,9 @@ const CASES = [
         noBareSatellitePill: !((g.text || "").trim().match(/^🛰️\s*\d+%$/)),
         stateIsProbability: g.state === "prob",
         evidenceShown: /51 tracked/.test(g.text || ""),
-        connectScoreWordShown: /ConnectScore/.test(g.text || ""),
+        streamingScoreWordShown: /Streaming score/.test(g.text || ""),
         accessibleSaysPerFlight: /historical per-flight next-gen odds/.test(g.aria || ""),
-        accessibleSaysStreaming: /Streaming-class ConnectScore/.test(g.aria || ""),
+        accessibleSaysStreaming: /Streaming score 42 out of 100 across this airline's fleet/.test(g.aria || ""),
         nextGenEvidenceIsTracker: !!g.nextEvidence && g.nextEvidence.tier === "REPORTED" &&
           g.nextEvidence.source === "unitedstarlinktracker.com" &&
           g.nextEvidence.date === "source date not provided",
@@ -2312,6 +2326,30 @@ const CASES = [
           !/unitedstarlinktracker/.test(g.streamEvidence.title),
         confirmStillSeparate: g.confirm === true,
       };
+    },
+  },
+  {
+    // Streaming is the 0–100 score from scoreAirline(), never an equipped or
+    // coverage percentage. The fixture reads scoreAirline in the loaded popup
+    // and the visible value from the separate isolated content-script world.
+    name: "streaming-value-parity",
+    o: "SFO", d: "DEN",
+    rows: [{ num: 1596, time: "8:30 a.m." }],
+    mock: { o: "SFO", d: "DEN", route: [{ fn: "UA1596", prob: 68, obs: 51, conf: "high" }], predict: {}, itins: [] },
+    driver: async ({ page, url, extId }) => {
+      await page.goto("chrome-extension://" + extId + "/popup.html", { waitUntil: "domcontentloaded" });
+      await page.waitForFunction(() => typeof scoreAirline === "function", null, { timeout: 15000 });
+      const fixture = await page.evaluate(() => {
+        const a = scoreAirline("united");
+        return { score: a.score, coveragePct: a.coveragePct };
+      });
+      await page.goto(url, { waitUntil: "domcontentloaded" });
+      await page.waitForSelector(".usl-stream__value", { timeout: 30000 });
+      const visible = await page.$eval(".usl-stream__value", (e) => e.textContent || "");
+      return { appeared: true, panelText: visible, badges: [], probe: { fixture, visible }, checks: {
+        renderedEqualsScoreAirline: visible === String(fixture.score),
+        renderedDoesNotUseCoverageFloor: visible !== String(fixture.coveragePct),
+      } };
     },
   },
   {

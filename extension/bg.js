@@ -33,7 +33,7 @@ const AIRLINE_BY_PREFIX = { UA: "UA", AS: "AS", OO: "AS", QX: "AS" };
  *       aircraft-type sentence. No tail, ever.
  *   GET /api/plan-route?origin=HNL&…         → 404 (not implemented here).
  * Wiring HA into API_BASES would therefore add a cache namespace and a dropdown
- * option that can only ever render "n/a". HA stays COARSE: ConnectScore 69 from
+ * option that can only ever render "n/a". HA stays COARSE: Streaming score 69 from
  * airlines.js (42/61 × starlink × free), shown in the popup and on the Google
  * Flights chips. Re-probe before promoting it — the fix is upstream, not here.
  * ─────────────────────────────────────────────────────────────────────────── */

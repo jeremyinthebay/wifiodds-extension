@@ -18,6 +18,7 @@ import { dirname, join } from "node:path";
 const HERE = dirname(fileURLToPath(import.meta.url));
 const GATE = join(HERE, "phase2-e2e.mjs");
 const FIRST_RUN_GATE = join(HERE, "first-run-coverage-e2e.mjs");
+const ONLY = process.env.MUTATION_ONLY ? new RegExp(process.env.MUTATION_ONLY) : null;
 
 // mutation → the focused case filter, and the case whose FAIL must name it.
 const MATRIX = {
@@ -44,6 +45,7 @@ const MATRIX = {
   "merged-metric-provenance": { only: "row-metrics-labelled", expect: "row-metrics-labelled" },
   "alaska-united-action":   { only: "alaska-no-united-action", expect: "alaska-no-united-action" },
   "alaska-winner-aria-says-united": { only: "alaska-no-united-action", expect: "alaska-no-united-action" },
+  "navan-winner-aria-clause-removed": { only: "navan-prioritize-explicit-action", expect: "navan-prioritize-explicit-action" },
   "guard-span-control":     { only: "guard-keyboard-roundtrip", expect: "guard-keyboard-roundtrip" },
   "guard-add-no-rollback":  { only: "guard-add-failure-rolls-back", expect: "guard-add-failure-rolls-back" },
   "gold-policy-claim":      { only: "guard-shortlist-capture", expect: "guard-shortlist-capture" },
@@ -74,7 +76,7 @@ const MATRIX = {
   "first-run-no-permission-request": { gate: FIRST_RUN_GATE, only: "first-run-coverage", expect: "first-run-coverage" },
   "first-run-add-tabs-permission": { gate: FIRST_RUN_GATE, only: "first-run-coverage", expect: "first-run-coverage" },
 };
-const CONTROLS_EXPECTED = 47;
+const CONTROLS_EXPECTED = 48;
 
 // Owner ruling, 3 Aug 2026: keep these honest-degradation states, but never
 // manufacture a green mutation result for branches no supported host can
@@ -125,6 +127,7 @@ for (const [name, item] of untestableEntries) {
     `definitions=${statesDefined ? "live" : "MISSING"} anchor=${anchorLive ? "live" : "MISSING"} · ${item.reason}\n`);
 }
 for (const [name, m] of Object.entries(MATRIX)) {
+  if (ONLY && !ONLY.test(name)) continue;
   process.stderr.write(`\n══ mutation ${name} ══\n`);
   const r = spawnSync(process.execPath, [m.gate || GATE], {
     env: { ...process.env, E2E_MUT: name, E2E_ONLY: m.only },
@@ -142,11 +145,12 @@ for (const [name, m] of Object.entries(MATRIX)) {
 }
 process.stderr.write("\nMUTATION MATRIX: " +
   (broken ? broken + " mutation(s) NOT caught — instrument broken" : "all " + rows.length + " mutations caught") + "\n");
-if (rows.length !== CONTROLS_EXPECTED) {
+const expectedCount = ONLY ? Object.keys(MATRIX).filter((name) => ONLY.test(name)).length : CONTROLS_EXPECTED;
+if (rows.length !== expectedCount) {
   broken++;
-  process.stderr.write(`CONTROL COUNT MISMATCH: expected ${CONTROLS_EXPECTED}, observed ${rows.length}; a named mutation is missing\n`);
+  process.stderr.write(`CONTROL COUNT MISMATCH: expected ${expectedCount}, observed ${rows.length}; a named mutation is missing\n`);
 } else {
-  process.stderr.write(`CONTROL COUNT: expected ${CONTROLS_EXPECTED}, observed ${rows.length}\n`);
+  process.stderr.write(`CONTROL COUNT: expected ${expectedCount}, observed ${rows.length}\n`);
 }
 process.stderr.write(rows.map((r) => `${r.ok ? "OK " : "BAD"} ${r.name} exit=${r.exit}`).join("\n") + "\n");
 if (broken) process.stderr.write("A surprising result is a claim about the instrument until proven otherwise. Before filing a defect, prove the instrument is sound — with a control that is known-good, not with a second run.\n");

@@ -1,6 +1,6 @@
 # SURFACES.md — where WiFi Odds shows up, in priority order
 
-The product thesis in one line: **the ConnectScore has to appear where the flight
+The product thesis in one line: **the Streaming score has to appear where the flight
 is chosen, not where it is flown.** That means booking surfaces, ranked by how
 many flight decisions pass through them — not by how easy they are to build.
 
@@ -39,7 +39,7 @@ review.
 | 5 | **Priceline** (`priceline.com`) | Mid-size US OTA; shares Booking Holdings tech, so partly a re-skin of #4 | 3 | PLANNED | 2.2 |
 | 6 | **Chase Travel** (`chase.com` / `travel.chase.com`) | Highest-value audience in the list — points bookers optimizing exactly this kind of trade-off. Small traffic, huge intent | 3 | PLANNED | 2.2 |
 | 7 | **Amex Travel** (`americanexpress.com/travel`) | Same audience as #6, similar size; heavy auth-walled SPA | 4 | SPIKE | 2.5 |
-| 8 | **Capital One Travel** (`travel.capitalone.com`) | Smaller than #6/#7 but the most modern stack of the three, and its own price-prediction UI is a natural neighbour for a ConnectScore chip | 3 | SPIKE | 2.5 |
+| 8 | **Capital One Travel** (`travel.capitalone.com`) | Smaller than #6/#7 but the most modern stack of the three, and its own price-prediction UI is a natural neighbour for a Streaming score chip | 3 | SPIKE | 2.5 |
 | 9 | **Hopper** | Large and growing, **app-only** — no bookable web surface to inject into | 5 | **BLOCKED** | API / partnership only |
 
 ### Airline direct
@@ -78,7 +78,7 @@ work in the project.
 
 **Google Flights — Martin Amps' extension.** Martin Amps ships a **UA-only**
 Google Flights Starlink indicator; it is currently **dormant**. Ours is a
-**multi-airline ConnectScore across 18 carriers** with live per-flight odds on
+**multi-airline Streaming score across 18 carriers** with live per-flight odds on
 United and Alaska — a different product that coexists with his rather than
 competing. **Still offer collaboration in outreach.** He owns real data and real
 distribution, and "we both built the same chip on the same page" is a better
@@ -90,7 +90,7 @@ where the choice is still open, which is why Google Flights outranks every
 airline site including our two best-instrumented ones.
 
 **A coarse chip is not a consolation prize.** Fourteen of the eighteen carriers
-have no per-flight API anywhere, and the static ConnectScore is the only honest
+have no per-flight API anywhere, and the static Streaming score is the only honest
 answer for them. Every surface below rank 3 should ship Tier 1 (carrier-level
 score) first and treat Tier 2 (live per-flight odds) as a bonus that appears when
 a UA/AS flight number happens to be visible.

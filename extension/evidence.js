@@ -73,9 +73,9 @@ var USLEvidence = (function () {
   function connectScore(x) {
     x = x || {}; var a = x.airline || {};
     return record({
-      kind: "connectscore", subject: text(a.name, "Airline") + " ConnectScore",
+      kind: "connectscore", subject: text(a.name, "Airline") + " Streaming score",
       valueText: Number.isFinite(a.score) ? String(a.score) : "—",
-      measures: "Streaming-class WiFi quality across the airline's known fleet; it is not a per-flight next-gen probability.",
+      measures: "A 0–100 rating of the airline's WiFi across its whole fleet today; it is not a per-flight next-gen probability.",
       tier: "MODELLED", source: MODEL_SOURCE, sourceDate: a.asOf,
       sample: modelSample(a), confidence: text(a.fleetStatus, "fleet-level model"),
       resolution: text(a.resolutionLabel, "Airline fleet"), rowRanking: false, decisionRanking: false,

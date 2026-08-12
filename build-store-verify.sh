@@ -15,7 +15,8 @@
 set -eu
 cd "$(dirname "$0")"
 VER=$(node -e "console.log(require('./extension/manifest.json').version)")
-ADIR=v$(printf '%s' "$VER" | cut -d. -f1,2)
+# v3.1.0 continues the active 3.x Store asset set under store-assets/v3.0.
+ADIR=${WIFIODDS_STORE_ASSET_DIR:-v3.0}
 FAIL=0
 
 # The manifest is not the release history by itself. Bind it to the first

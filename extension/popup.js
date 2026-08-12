@@ -337,7 +337,7 @@ var HOSTS = [
     denied: "alaskaair.com access not granted.",
     title: "Chrome asks for alaskaair.com. Reload the tab after granting." },
   { key: "gflights", label: "Google Flights", origins: GFLIGHTS_ORIGINS,
-    granted: "Enabled on Google Flights — reload the tab to see ConnectScore chips.",
+    granted: "Enabled on Google Flights — reload the tab to see Streaming score chips.",
     denied: "Google Flights access not granted.",
     title: "Chrome asks for all of www.google.com because permissions are " +
       "per-site. The extension only ever runs on google.com/travel/flights " +
@@ -460,7 +460,7 @@ updateCredit();
 init();
 
 
-/* ── ConnectScore by airline (v2.0) ────────────────────────────────────────
+/* ── Streaming score by airline ────────────────────────────────────────────
  * Fully static: every number comes from airlines.js, which is loaded ahead of
  * this file and makes no network calls. Rendered lazily the first time the
  * <details> is opened, so a popup that never opens it pays nothing. If

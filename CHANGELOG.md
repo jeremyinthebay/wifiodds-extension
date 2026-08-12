@@ -9,6 +9,27 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [3.1.0] - 2026-08-12
+
+Chrome Web Store: not uploaded. Candidate assembly waits for the exact reviewed website model.
+
+### Changed
+
+- Renamed the customer-facing ConnectScore to Streaming. The score still uses the same formula and
+  ranking method; the separate coverage percentage remains supporting evidence, never the score.
+- Updated customer copy, accessible names, evidence subjects, Store instructions, and replacement
+  screenshot requirements to use Streaming score.
+
+### Fixed
+
+- Screen readers retain Navan's United-only sorting clause and omit it on other booking sites.
+
+### Pending exact model pin
+
+- The approved site candidate updates grounded airline data separately from the terminology change,
+  including United from 42 to 44 and Hawaiian from 64 to 69. These values enter the extension only
+  after Claude PASSes site `8d8c7ef491bdb49a1912fbd4e494cbf759931f41` and the release pin advances.
+
 ## [3.0.3] - 2026-08-12
 
 Chrome Web Store: not uploaded.
@@ -123,7 +144,8 @@ Chrome Web Store: published 2026-07-28.
 - Renamed the extension to WiFi Odds for Flights and expanded it from a United-only companion into
   a multi-airline WiFi decision tool.
 
-[Unreleased]: https://github.com/jeremyinthebay/wifiodds-extension/compare/v3.0.3...HEAD
+[Unreleased]: https://github.com/jeremyinthebay/wifiodds-extension/compare/v3.1.0...HEAD
+[3.1.0]: https://github.com/jeremyinthebay/wifiodds-extension/compare/v3.0.3...v3.1.0
 [3.0.3]: https://github.com/jeremyinthebay/wifiodds-extension/compare/v3.0.2...v3.0.3
 [3.0.2]: https://github.com/jeremyinthebay/wifiodds-extension/compare/v3.0.1...v3.0.2
 [3.0.1]: https://github.com/jeremyinthebay/wifiodds-extension/compare/v3.0.0...v3.0.1

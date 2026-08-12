@@ -262,7 +262,7 @@
    search page. inline-flex + a small font is the whole design. */
 .usl-gf-chip{font-size:11px;padding:2px 7px;margin-left:6px;vertical-align:middle;flex:0 0 auto;letter-spacing:.02em;font-weight:800}
 .usl-gf-chip.usl-gf-live{box-shadow:0 0 0 2px rgba(0,106,128,.38),0 1px 3px rgba(16,24,40,.28)}
-/* The STREAMING chip is the airline's ConnectScore, a different kind of fact
+/* The STREAMING chip is the airline's Streaming score, a different kind of fact
    from a per-flight next-gen probability, so it takes a neutral outline rather
    than the odds ramp's filled pill (Codex round 26). */
 .usl-gf-chip.usl-gf-cs{
@@ -494,7 +494,7 @@ span.usl-watching:focus-visible{
  * never joins the host's price/action flex row — the geometry contract is that
  * price and booking-action boxes must not shift, wrap or overlap at 340, 390,
  * 600, 601 and desktop. Metric identity is NEVER hidden at any width; only the
- * evidence words and the "ConnectScore" word drop. */
+ * evidence words and the "Streaming score" word drop. */
 .usl-metrics{
   display:inline-flex;flex-direction:column;align-items:flex-start;gap:2px;
   vertical-align:middle;margin-left:8px;flex:0 0 auto;
@@ -522,15 +522,15 @@ span.usl-watching:focus-visible{
 .usl-stream__word{font-size:10.5px;color:#6b7280;font-weight:600}
 .usl-metrics .usl-confirm{margin-top:2px}
 
-/* ≤600px — drop the evidence words and the "ConnectScore" word. The LABELS
+/* ≤600px — drop the evidence words and the "Streaming score" word. The LABELS
  * stay: an unlabelled percentage is the exact defect this group replaced. */
 @media (max-width:600px){
   .usl-ng__sub{display:none}
   .usl-stream__word{display:none}
 }
 /* ≤390px — the narrow edge. "STREAMING" abbreviates to "STREAM" via CSS
- * content so the accessible name (which spells out "Streaming-class
- * ConnectScore") is untouched. Nothing drops below 11px. */
+ * content so the accessible name keeps the full Streaming score. Nothing drops
+ * below 11px. */
 @media (max-width:390px){
   .usl-stream__label{font-size:0}
   .usl-stream__label::after{content:"STREAM";font-size:9px;letter-spacing:.08em}

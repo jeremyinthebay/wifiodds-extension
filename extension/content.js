@@ -562,7 +562,7 @@
    *     DOM here — that is what killed the idea of reusing sortPage().
    * Two tiers:
    *   Tier 1 (always) — detect the operating airline(s) from the row text and
-   *     render a static ConnectScore chip from airlines.js. No network at all.
+   *     render a static Streaming score chip from airlines.js. No network at all.
    *   Tier 2 (when the row happens to expose a UA/AS flight number) — ask the
    *     service worker for live per-flight odds and upgrade that chip in place.
    *     HA is excluded on purpose: its tracker publishes no per-flight
@@ -709,7 +709,7 @@
     unknown: "free status unconfirmed",
     paid: "paid",
   };
-  const GF_CREDIT = "ConnectScore by wifiodds.com";
+  const GF_CREDIT = "Streaming score by wifiodds.com";
 
   let gfPresent = new Map();   // airline key → count of rows it appears in
   let gfSig = "";              // panel signature, so we don't re-render on churn
@@ -801,7 +801,7 @@
       : "";
     if (hit && typeof hit.prob === "number") {
       // Tier 2: live per-flight odds replace the static score. LABELLED (Codex
-      // round 26): an unlabelled "🛰 42" meant ConnectScore here and per-flight
+      // round 26): an unlabelled "🛰 42" meant Streaming score here and per-flight
       // next-gen odds on united.com, with nothing on screen to tell them apart.
       return {
         sig: "live|" + fn + "|" + hit.prob + "|" + (hit.obs || 0) + "|" +
@@ -832,7 +832,7 @@
           metricEvidence("tracker", WIFI_AIRLINES[key])),
       };
     }
-    // Tier 1: the airline's static STREAMING-class ConnectScore. This is NOT a
+    // Tier 1: the airline's static Streaming score. This is NOT a
     // per-flight next-gen probability and must never look like one, so it is
     // labelled and stays on the neutral outline treatment.
     const fleet = a.fleet ? a.equipped + " of " + a.fleet + " aircraft" : "fleetwide";
@@ -841,7 +841,7 @@
       sig: "cs|" + key + "|" + a.score + opSig,
       cn: "usl-badge usl-gf-chip usl-gf-cs " + cls(a.score),
       tx: "STREAMING " + a.score,
-      ti: a.name + " · streaming-class ConnectScore " + a.score + " (" + a.label + ") — " +
+      ti: a.name + " · Streaming score " + a.score + " out of 100 (" + a.label + ") — " +
         a.systemLabel + " on " + fleet + (freeTxt ? ", " + freeTxt : "") + ". " +
         (a.note || "") + opNote + " · " + GF_CREDIT,
       record: connectScoreEvidenceRecord(a),
@@ -917,7 +917,7 @@
 
         /* Score the metal, not the ticket. When the row names an unambiguous
          * operating carrier that is not the marketing one, that carrier's fleet
-         * is what is flying, so its ConnectScore is the honest answer — higher
+         * is what is flying, so its Streaming score is the honest answer — higher
          * (ex-Hawaiian widebody on an Alaska ticket: 28 → 69) or lower.
          *
          * Tier 2 is deliberately given up in that case: a per-flight number is
@@ -970,7 +970,7 @@
   }
 
   /* GF panel: a per-airline summary of what is actually in these results,
-   * ranked by ConnectScore. Deliberately NOT the united.com route flight list —
+   * ranked by Streaming score. Deliberately NOT the united.com route flight list —
    * on GF there is no single route/airline, and no sort button, because GF owns
    * its own ordering and its list virtualizes. */
   function renderGFPanel() {
@@ -995,8 +995,8 @@
     const liveRows = ranked.filter((a) => a.instrumented).length;
     // Next-gen first (Jeremy, 31 Jul): section 1 ranks the airlines in these
     // results by NEXT-GEN ODDS (chance of a Starlink / Amazon Leo aircraft,
-    // from the same published segment ledger); section 2 is the streaming-class
-    // ConnectScore (today's system quality, the floor). A missing next-gen
+    // from the same published segment ledger); section 2 is the Streaming score
+    // (today's system quality, the floor). A missing next-gen
     // number renders n/a — unknown is never zero.
     const byNextGen = ranked.slice().sort((a, b) => {
       const av = typeof a.nextGenScore === "number" ? a.nextGenScore : -1;
@@ -1025,13 +1025,13 @@
           `<span>${esc(a.name)}<span class="usl-time"> · ${esc(a.nextGenLabel || "no next-gen fleet announced")}</span></span>` +
           `<span class="usl-badge ${ng === null ? "usl-na" : cls(ng)}" data-evidence-fleet="${esc(a.key)}">${txt}</span></div>`;
       }).join("") +
-      `<p class="usl-sect usl-sect--stream">Streaming-class · ConnectScore</p>` +
+      `<p class="usl-sect usl-sect--stream">Streaming score · out of 100</p>` +
       ranked.map((a) =>
         `<div class="usl-row usl-stream" title="${esc(a.note || "")}">` +
         `<span>${esc(a.name)}<span class="usl-time"> · ${esc(a.systemLabel)}${a.fleet ? " " + a.equipped + "/" + a.fleet : ""}</span></span>` +
         `<span class="usl-badge usl-cs ${cls(a.score)}" data-evidence-connect="${esc(a.key)}">${a.score}</span></div>`).join("") +
       `<div style="margin-top:8px;font-size:11px;opacity:.75;line-height:1.45">` +
-      `Next-gen odds = chance of a Starlink aircraft today (Amazon Leo from 2027, none flying yet). ConnectScore = odds of the good satellite wifi today, not of any wifi. ` +
+      `Next-gen odds = chance of a Starlink aircraft today (Amazon Leo from 2027, none flying yet). Streaming score = a 0–100 rating of the airline's WiFi across its whole fleet today. ` +
       (liveRows ? `United and Alaska rows upgrade to live per-flight odds when Google shows a flight number. ` : ``) +
       `</div>` +
       `<div style="margin-top:8px;font-size:11.5px">` +
@@ -1057,7 +1057,7 @@
    * ONE compact group carrying a LABELLED primary next-gen figure and a
    * LABELLED secondary streaming figure. The bare `🛰️ 48%` pill is retired: an
    * identical-looking chip meant per-flight next-gen odds on united.com and an
-   * airline ConnectScore on Google Flights, and nothing on screen said which.
+   * airline Streaming score on Google Flights, and nothing on screen said which.
    *
    * Next-gen has SEVEN mutually exclusive states and none of them is a zero.
    * A fleet share is a different fact from a per-flight probability, so it gets
@@ -1235,16 +1235,16 @@
         if (typeof USLEvidence !== "undefined") USLEvidence.upgrade(v, connectScoreEvidenceRecord(entry));
         const w = document.createElement("span");
         w.className = "usl-stream__word";     // hidden at narrow widths
-        w.textContent = "ConnectScore";
+        w.textContent = "Streaming score";
         line.appendChild(w);
-        streamText = "Streaming-class ConnectScore " + entry.score + " out of 100";
+        streamText = "Streaming score " + entry.score + " out of 100 across this airline's fleet";
       } else {
         const v = document.createElement("span");
         v.className = "usl-stream__value usl-stream__value--none";
-        v.textContent = "No ConnectScore";
+        v.textContent = "No Streaming score";
         line.appendChild(v);
         if (typeof USLEvidence !== "undefined") USLEvidence.upgrade(v, connectScoreEvidenceRecord(entry));
-        streamText = "No streaming-class ConnectScore for this airline";
+        streamText = "No Streaming score for this airline";
       }
       grp.appendChild(line);
     }
@@ -1363,7 +1363,7 @@
           // differently-shaped chips — a bare "🛰️ —" for a failed request, a
           // bare "🛰️ n/a" for a genuine absence, and a percentage pill — none
           // of which said whether the number was per-flight next-gen or an
-          // airline ConnectScore. metricsGroup() resolves the state and labels
+          // airline Streaming score. metricsGroup() resolves the state and labels
           // it. `hit === undefined` still means "never asked": no group yet.
           el.dataset.uslBadged = hit && hit.unavailable ? "unavail" : hit ? "1" : "na";
           const grp = metricsGroup(fn, hit, null);
@@ -2010,8 +2010,8 @@
       `</section>`;
   }
 
-  /* ── streaming-class section (next-gen first, streaming second) ────────────
-   * ConnectScore is TODAY'S system quality — the published floor from
+  /* ── Streaming score section (next-gen first, Streaming second) ────────────
+   * Streaming score is TODAY'S system quality — the published floor from
    * airlines.js — and answers a different question than the next-gen odds
    * above it. On Navan the section lists every supported carrier matched in
    * the results (falling back to United); single-carrier hosts list their own
@@ -2039,7 +2039,7 @@
       .sort((a, b) => b.score - a.score)
       .slice(0, 6);
     if (!rows.length) return "";
-    return `<p class="usl-sect usl-sect--stream">Streaming-class · ConnectScore</p>` +
+    return `<p class="usl-sect usl-sect--stream">Streaming score · out of 100</p>` +
       rows.map((a) =>
         `<div class="usl-row usl-stream" title="${esc(a.note || "")}">` +
         `<span>${esc(a.name)}<span class="usl-time"> · ${esc(a.systemLabel)}</span></span>` +
@@ -2143,7 +2143,7 @@
         : "") +
       // Next-gen first (Jeremy, 31 Jul): the ranked flight odds ARE the
       // next-gen number — the chance of drawing a Starlink / Amazon Leo
-      // aircraft — and the section says so. Streaming-class (ConnectScore,
+      // aircraft — and the section says so. Streaming score (today's system quality,
       // today's system quality) renders BELOW as its own labelled section.
       (flights.length ? `<p class="usl-sect">Next-gen odds · Starlink and Amazon Leo</p>` : "") +
       (flights.length

@@ -18,7 +18,7 @@
  * is not a pin.
  * ═══════════════════════════════════════════════════════════════════════════
  */
-/* airlines.js — static WiFi ConnectScore map (v3.0, the segmented model)
+/* airlines.js — static WiFi Streaming score map (v3.1, the segmented model)
  * ═══════════════════════════════════════════════════════════════════════════
  * PROVENANCE — this file started as a COPY of the browser extension's
  * `extension/airlines.js` (repo: jeremyinthebay/united-starlink-companion,
@@ -116,7 +116,7 @@
  *                   basic      — legacy Panasonic / Ku. Email and messaging.
  *                   mixed      — part next-gen, the rest one of the above
  *   restTier      the tier on the part of the fleet that is NOT next-gen yet.
- *                 "unknown" renders as "streaming-class or basic".
+ *                 "unknown" renders as "streaming or basic".
  *
  * Both fields are DATA, not prose: the wording lives in the site/popup, the keys
  * live here, and build/prerender.js fails the build if a stored serviceTier
@@ -136,10 +136,10 @@
  *
  * That is the same denominator, the same quality weight and the same free factor
  * as nextGenScore, so the two sit on one axis: "Delta 0 today, 38 projected from
- * 2028" is a sentence a reader can check. Against a ConnectScore it would not be.
+ * 2028" is a sentence a reader can check. Against a Streaming score it would not be.
  *
  * The committed count is the FLOOR of what was announced. "500+ Airbus" scores
- * 500, for the same reason the published ConnectScore is the floor.
+ * 500, for the same reason the published Streaming score is the floor.
  *
  * FIVE FENCING RULES, each with a tripwire in build/prerender.js. A projection is
  * a promise somebody else made, and this file is where it could quietly turn into
@@ -734,7 +734,7 @@ const WIFI_AIRLINES = {
   delta: {
     name: "Delta", code: "DL", asOf: "2026-07",
     nextGenSplit: "split-not-published",
-    /* CORRECTED 2026-07-25. coverage was 1.0 ("streaming-class fleetwide"),
+    /* CORRECTED 2026-07-25. coverage was 1.0 ("streaming fleetwide"),
        which is not true today. Delta's own two public data points bound it:
          · 2025-12-08 — "1,000+ Sync-equipped aircraft, >75% of the entire
            fleet"  ⇒ total fleet ≈ 1,330
@@ -950,7 +950,7 @@ const STREAMING_MIN_Q = (QUALITY_TIER.legacyGeo + QUALITY_TIER.modernGeo) / 2;
 const SERVICE_TIER_LABEL = {
   "next-gen": "next-gen fleetwide",
   mixed: "mixed",
-  streaming: "streaming-class",
+  streaming: "streaming",
   basic: "basic",
 };
 
@@ -958,9 +958,9 @@ const SERVICE_TIER_LABEL = {
  * case: we have verified next-gen tail counts, not a verified inventory of
  * everybody's older hardware. */
 const REST_TIER_LABEL = {
-  streaming: "streaming-class",
+  streaming: "streaming",
   basic: "basic",
-  unknown: "streaming-class or basic",
+  unknown: "streaming or basic",
 };
 
 /* One sentence per tier, for the surfaces that have room. No video-call promise
@@ -997,14 +997,14 @@ const SYSTEM_LABEL = {
 };
 
 const SCORE_CAVEAT =
-  "ConnectScore is a conservative whole-fleet lower bound, not an expected value or a prediction about one flight: " +
+  "Streaming score is a conservative whole-fleet lower bound, not an expected value or a prediction about one flight: " +
   "United measured 320, 56 and 15 Mbps on three systems in one livery in one reporting period. " +
   "Aircraft whose system an airline does not publish stay in the denominator and add zero to the " +
   "lower bound rather than being dropped from it. Signed-but-unflown deals (AA Starlink 2027, " +
   "DL/B6 Amazon Leo) score zero until they fly.";
 
 const SCORE_METHOD_LINE =
-  "ConnectScore = the sum, over every segment of the fleet, of whole-fleet share × system quality × " +
+  "Streaming score = the sum, over every segment of the fleet, of whole-fleet share × system quality × " +
   "free-for-you. Unresolved aircraft stay in the denominator and add zero, so the published score " +
   "is a whole-fleet lower bound. " +
   "Data: unitedstarlinktracker.com · alaskastarlinktracker.com · airline announcements (Jul 2026).";
@@ -1014,7 +1014,7 @@ const SCORE_METHOD_LINE =
 const TIER_METHOD_LINE =
   "Next-gen odds = share of the fleet flying Starlink or Amazon Leo today × free-for-you. " +
   "Signed-but-unflown deals count zero. The second line is what the fleet actually " +
-  "delivers today: next-gen, streaming-class, basic, or mixed.";
+  "delivers today: next-gen, streaming, basic, or mixed.";
 
 /* ── the projected score ──────────────────────────────────────────────────
  * The header carries the five fencing rules. These three constants are the data
@@ -1033,7 +1033,7 @@ const PROJECTION_METHOD_LINE =
   "Projected score = committed aircraft ÷ the same known-fleet denominator the next-gen odds " +
   "use × 1.00 for low-earth orbit × free-for-you. It is the next-gen number a fleet would carry " +
   "if the announced deal lands as announced, so read it against next-gen odds and never against " +
-  "the ConnectScore. A projection never moves the leaderboard and it carries its date and its " +
+  "the Streaming score. A projection never moves the leaderboard and it carries its date and its " +
   "confidence wherever it appears. FIRM: count and date both published. SOFT: one of the two is " +
   "secondary reporting. SLIPPED: the announced date has passed with nothing installed, computed " +
   "from the build date rather than stored. A committed share of a fleet is not a measurement — " +
@@ -1052,14 +1052,14 @@ function freeFactor(free) {
   const f = FREE_FACTOR[String(free || "").toLowerCase()];
   return typeof f === "number" ? f : 0.85;
 }
-/* Free-for-you as an INTERVAL, for the ConnectScore lower/upper bounds. A
+/* Free-for-you as an INTERVAL, for the Streaming score lower/upper bounds. A
  * confirmed tier is a point (min === max). An UNKNOWN or unrecorded free status
  * is [0, 1]: it contributes zero to the floor and one to the ceiling. It never
  * enters the floor as an assumed 0.85 midpoint — that midpoint is exactly what
  * the round-18 P0-02 ruling forbids inside a quantity called a floor. This is
  * separate from freeFactor() on purpose: the next-gen odds and the projected
  * score keep the documented point estimate, because every next-gen segment
- * publishes a real free status; only the ConnectScore bound needs the honest
+ * publishes a real free status; only the Streaming score bound needs the honest
  * range. */
 function freeInterval(free) {
   const k = String(free || "").toLowerCase();
@@ -1180,7 +1180,7 @@ function ledgerFor(entry) {
   const unresolved = unresolvedAircraft(entry);
 
   /* THE WHOLE-FLEET DENOMINATOR. `T` is every tail a passenger could be
-     assigned, resolved or not. Round-18 P0-02: the published ConnectScore is the
+     assigned, resolved or not. Round-18 P0-02: the published Streaming score is the
      whole-fleet LOWER BOUND, so each segment's share is n/T, not n/known.
      Unresolved aircraft are a real part of the fleet that we cannot vouch for;
      they contribute zero to the floor and their whole share to the ceiling,
@@ -1204,7 +1204,7 @@ function ledgerFor(entry) {
     /* The resolved-subset bound is the same arithmetic over `known`. It is the
        `resolvedSubsetScore` diagnostic, labelled "Among resolved aircraft"
        wherever it appears, and it never sorts, ranks, or stands in for the
-       public ConnectScore. */
+       public Streaming score. */
     resolvedFloor += shareResolved * q.min * fi.min;
     resolvedCeiling += shareResolved * q.max * fi.max;
     /* NEXT-GEN ODDS already divide by the whole fleet, and keep the documented
@@ -1253,7 +1253,7 @@ function ledgerFor(entry) {
     total: T,
     coverage: T > 0 ? known / T : 1,
     /* Whole-fleet lower and upper bounds, 0..1. rawFloor is the published
-       ConnectScore; rawCeiling carries the unresolved share and is capped at 1. */
+       Streaming score; rawCeiling carries the unresolved share and is capped at 1. */
     rawFloor: sumFloor / 100,
     rawCeiling: sumCeiling / 100,
     /* Resolved-subset bounds, 0..1 — the "Among resolved aircraft" diagnostic. */
@@ -1320,7 +1320,7 @@ function nextGenPublished(entry) {
   return L.nextGenShare > 0;
 }
 
-/* ── the mainline/regional split of NEXT-GEN ODDS, not of ConnectScore ─────
+/* ── the mainline/regional split of NEXT-GEN ODDS, not of Streaming score ───
  * D2: the united/data.json roster is Starlink-only (tail/type/fleet/seen, no
  * system field), so aircraft type ties to a segment but Viasat/Panasonic/Thales
  * installs do NOT. Building that crosstab for anyone but United would be
@@ -1510,7 +1510,7 @@ function scoreEntry(entry) {
     const floor = Math.round(clamp01(L.rawFloor) * 100);
     const ceiling = Math.round(clamp01(L.rawCeiling) * 100);
     return {
-      score: floor,          // the published ConnectScore IS the whole-fleet lower bound
+      score: floor,          // the published Streaming score is the whole-fleet lower bound
       floor: floor,
       ceiling: ceiling,
       /* Unrounded lower bound, 0..100 — the ONLY key the leaderboard sorts on,
@@ -1635,7 +1635,7 @@ function scoreAirline(key) {
     ceiling: s.ceiling,
     hasRange: s.ceiling > s.floor,
     /* ── round-18 P0-02: the whole-fleet recommendation contract. `score`,
-       `floor` and `connectScoreLower` are the same number — the published
+       `floor` and the legacy `connectScoreLower` are the same number — the published
        lower bound — and `scoreExact` is its unrounded form for ranking.
        `resolvedSubsetScore` is the "Among resolved aircraft" diagnostic and
        never ranks. Every recommendation surface reads these. ── */

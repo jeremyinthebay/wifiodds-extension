@@ -12,7 +12,10 @@ case "$DIST_DIR" in
 esac
 VER=$(node -e "console.log(require('./extension/manifest.json').version)")
 RELEASE_TAG=${RELEASE_TAG:-v${VER}}
-ADIR=v$(printf '%s' "$VER" | cut -d. -f1,2)
+# Store copy and screenshots are maintained as the active 3.x release set.
+# v3.1.0 updates the same v3.0 handoff assets instead of creating a second,
+# ambiguous Store source of truth.
+ADIR=${WIFIODDS_STORE_ASSET_DIR:-v3.0}
 CANDIDATE_DIR="$DIST_DIR/candidates"
 CANDIDATE="$CANDIDATE_DIR/wifiodds-v${VER}-store-bundle.zip"
 META="$CANDIDATE_DIR/wifiodds-v${VER}-store-bundle.candidate"
