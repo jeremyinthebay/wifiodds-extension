@@ -17,5 +17,5 @@
 #              SITE_SHA on purpose: it is a second, independent name for the exact
 #              bytes, so a rewritten/forced commit cannot silently redefine them.
 
-SITE_SHA=cae8be119b83abff12f57877c1cf344b03b8b6b8
+SITE_SHA=952d7adf8642b5b5cea88f0434b33404d91b0327
 MODEL_BLOB=8b04acd3a7c88f7dea86d5367a5de1ffc125222e

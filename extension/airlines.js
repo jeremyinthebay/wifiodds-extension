@@ -6,7 +6,7 @@
  * `sh build-airlines-parity.sh [--write]`; the release gate runs the same
  * comparison, so drift fails a build instead of surviving in a comment.
  *
- * PINNED SITE COMMIT: cae8be119b83abff12f57877c1cf344b03b8b6b8
+ * PINNED SITE COMMIT: 952d7adf8642b5b5cea88f0434b33404d91b0327
  * PINNED MODEL BLOB:  8b04acd3a7c88f7dea86d5367a5de1ffc125222e
  *
  * The site model refreshes daily while the Web Store upload is Jeremy's manual
