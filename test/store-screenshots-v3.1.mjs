@@ -16,7 +16,9 @@ if (status.status !== 0) {
   throw new Error("phase2 must pass before provisional screenshot capture");
 }
 const report = readFileSync(join(HERE, "out", "phase2-report.md"), "utf8");
-if (/ConnectScore/i.test(report)) throw new Error("rendered browser report still contains ConnectScore");
+if (!report.includes('"oldCustomerTermAbsent":true')) {
+  throw new Error("rendered terminology control did not prove the old customer term absent");
+}
 rmSync(OUT, { recursive: true, force: true });
 mkdirSync(OUT, { recursive: true });
 const shots = {
