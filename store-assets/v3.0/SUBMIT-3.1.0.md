@@ -54,7 +54,7 @@ Upload `wifi-odds-extension-3.1.0.zip` from the reviewed handoff bundle only.
 
 ### What's new
 
-`Streaming score replaces the previous customer score name across the extension and Store materials. Screen readers now keep the United-only sorting clause on Navan and omit it elsewhere.`
+`Streaming score replaces the previous customer score name. Navan flight times now match the valid time shown in the booking result, and screen readers hear the United-only sorting note only on Navan.`
 
 ### Screenshots changed
 

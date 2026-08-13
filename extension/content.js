@@ -66,10 +66,10 @@
   const UNITED_FALLBACK = !NAVAN && !ALASKA && !GFLIGHTS;
   // Anywhere we keep per-flight predictions across a context change / re-index.
   const KEEP_PREDICTIONS = PAGE_PREDICT || UNITED_FALLBACK;
-  const TIME_RE = /\b\d{1,2}:\d{2}\s?[ap]\.?m\.?/gi;
+  const TIME_RE = /\b(?:(?:0?[1-9]|1[0-2]):[0-5]\d\s?[ap]\.?m\b\.?|(?:[01]?\d|2[0-3]):[0-5]\d\b(?!\s?[ap]))/gi;
   // Non-global twin of TIME_RE. .test() on a /g regex advances lastIndex and
   // silently alternates true/false across calls — never use TIME_RE for tests.
-  const TIME_ONE = /\b\d{1,2}:\d{2}\s?[ap]\.?m\.?/i;
+  const TIME_ONE = /\b(?:(?:0?[1-9]|1[0-2]):[0-5]\d\s?[ap]\.?m\b\.?|(?:[01]?\d|2[0-3]):[0-5]\d\b(?!\s?[ap]))/i;
   let ctx = null;            // {o,d,date,phase} — the ACTIVE leg
   let ctxKey = "", dataKey = "";
   // Route-fetch backoff so a tracker outage recovers WITHOUT a page reload but
@@ -1046,7 +1046,7 @@
   function findRow(el) {
     let e = el;
     for (let i = 0; i < SEL.rowDepth && e && e !== document.body; i++, e = e.parentElement) {
-      const txt = e.textContent || "";
+      const txt = hostText(e);
       const times = txt.match(TIME_RE);
       if (times && times.length) return { rowEl: e, times: times.slice(0, 2).join(" – ") };
     }
@@ -1585,7 +1585,7 @@
    * decide what it IS must read the page, never our own annotations. */
   function hostText(el) {
     if (!el) return "";
-    let out = "";
+    const parts = [];
     (function walk(n) {
       for (const c of n.childNodes) {
         if (c.nodeType === 1) {
@@ -1596,10 +1596,10 @@
             if (ours) continue;
           }
           walk(c);
-        } else if (c.nodeType === 3) out += c.nodeValue;
+        } else if (c.nodeType === 3 && c.nodeValue.trim()) parts.push(c.nodeValue.trim());
       }
     })(el);
-    return out;
+    return parts.join(" ");
   }
   function isFlightUnit(el) {
     const t = hostText(el);

@@ -1,23 +1,34 @@
 #!/bin/sh
-# build-store-verify.sh — FAIL-CLOSED, READ-ONLY release identity + copy gate.
+# build-store-verify.sh — FAIL-CLOSED, READ-ONLY candidate identity + copy gate.
 #
 # WHY THIS EXISTS (Codex round 20 P2). build-store-zip.sh REGENERATES the upload ZIP and file
 # manifest from HEAD on every run, so it can only ever prove "the freshly built archive matches
 # HEAD" — it can NEVER detect that the archive ALREADY COMMITTED in HEAD is stale. A one-byte
 # committed source change with unchanged committed artifacts sails through it at exit 0.
 #
-# This gate reads ONLY committed bytes (git show HEAD:...) and writes NOTHING. It fails closed on
-# any drift between the committed dist artifacts and HEAD:extension, and on any store-copy claim that
-# contradicts the shipped manifest/product. The clean submitted SHA passes with no tracked changes;
-# a committed one-byte source mutation with stale artifacts fails.
+# Release archives stopped being committed after 3.0.1. This gate therefore reads the exact
+# candidate bundle and metadata produced by build-store-bundle.sh, while resolving product source,
+# Store copy, screenshots and provenance from committed HEAD. It writes only to a temporary directory
+# and fails closed when the candidate does not match HEAD or its recorded identity.
 #
-#   sh build-store-verify.sh     # exit 0 = committed artifacts + store copy match the shipped source
+#   sh build-store-verify.sh     # exit 0 = exact candidate + Store copy match committed HEAD
 set -eu
 cd "$(dirname "$0")"
 VER=$(node -e "console.log(require('./extension/manifest.json').version)")
 # v3.1.0 continues the active 3.x Store asset set under store-assets/v3.0.
 ADIR=${WIFIODDS_STORE_ASSET_DIR:-v3.0}
+DIST_DIR=${WIFIODDS_STORE_DIST_DIR:-dist}
+case "$DIST_DIR" in
+  /*) ;;
+  *) DIST_DIR="$(pwd)/$DIST_DIR" ;;
+esac
+CANDIDATE="$DIST_DIR/candidates/wifiodds-v${VER}-store-bundle.zip"
+META="$DIST_DIR/candidates/wifiodds-v${VER}-store-bundle.candidate"
 FAIL=0
+
+meta_value() {
+  awk -F= -v key="$1" '$1 == key { sub(/^[^=]*=/, ""); print; found=1 } END { if (!found) exit 1 }' "$META"
+}
 
 # The manifest is not the release history by itself. Bind it to the first
 # released CHANGELOG entry before resolving any version-named artifact paths.
@@ -33,25 +44,25 @@ EXPECT=$(git ls-tree -r --name-only HEAD:extension | while read -r f; do
   printf '%s  %s\n' "$(git cat-file blob "HEAD:extension/$f" | shasum -a 256 | cut -d' ' -f1)" "$f"
 done | sort -k2)
 
-# 1. committed file-hash manifest must already equal HEAD:extension (no regen).
-GOT=$(git show "HEAD:dist/wifiodds-v${VER}.files.sha256" | sort -k2)
-[ "$EXPECT" = "$GOT" ] || { echo "FAIL: committed dist/wifiodds-v${VER}.files.sha256 != HEAD:extension (stale manifest)"; FAIL=1; }
-
-# 2. the committed upload ZIP's contents must already equal HEAD:extension (no regen).
 TMP=$(mktemp -d)
-git show "HEAD:dist/wifiodds-v${VER}.zip" > "$TMP/pkg.zip"
-unzip -q "$TMP/pkg.zip" -d "$TMP/x"
-ZGOT=$(cd "$TMP/x" && find . -type f | sed 's#^\./##' | while read -r f; do
-  printf '%s  %s\n' "$(shasum -a 256 "$f" | cut -d' ' -f1)" "$f"
-done | sort -k2)
-[ "$EXPECT" = "$ZGOT" ] || { echo "FAIL: committed dist/wifiodds-v${VER}.zip is not the HEAD:extension tree (stale zip)"; FAIL=1; }
+trap 'rm -rf "$TMP"' EXIT HUP INT TERM
 
-# 3. the committed store bundle must embed the exact CONTENT of the committed
-# upload ZIP. ZIP container bytes carry timestamps and are not reproducible, so
-# raw archive equality is diagnostic only; the emitted per-file manifest is the
-# release identity contract.
-git show "HEAD:dist/wifiodds-v${VER}-store-bundle.zip" > "$TMP/bundle.zip"
+# 1. Candidate metadata is the review identity. It must name this exact HEAD and ZIP.
+[ -f "$CANDIDATE" ] || { echo "FAIL: candidate bundle missing: $CANDIDATE"; exit 1; }
+[ -f "$META" ] || { echo "FAIL: candidate metadata missing: $META"; exit 1; }
+SOURCE_SHA=$(meta_value SOURCE_SHA)
+RECORDED_ZIP_SHA=$(meta_value ZIP_SHA256)
+CURRENT_ZIP_SHA=$(shasum -a 256 "$CANDIDATE" | cut -d' ' -f1)
+[ "$SOURCE_SHA" = "$(git rev-parse HEAD)" ] || { echo "FAIL: candidate SOURCE_SHA does not equal HEAD"; FAIL=1; }
+[ "$RECORDED_ZIP_SHA" = "$CURRENT_ZIP_SHA" ] || { echo "FAIL: candidate ZIP hash differs from metadata"; FAIL=1; }
+
+# 2. Inspect the candidate itself; never regenerate the artifact under test.
+cp "$CANDIDATE" "$TMP/bundle.zip"
+mkdir "$TMP/b"
 unzip -q "$TMP/bundle.zip" -d "$TMP/b"
+
+# 3. The candidate must embed the exact CONTENT of committed HEAD:extension.
+# ZIP container bytes carry timestamps, so the per-file hashes are the identity.
 BZIP_COUNT=$(find "$TMP/b" -name "wifi-odds-extension-${VER}.zip" -type f | wc -l | tr -d ' ')
 BZIP=$(find "$TMP/b" -name "wifi-odds-extension-${VER}.zip" -type f | head -1)
 if [ "$BZIP_COUNT" = 1 ]; then
@@ -60,24 +71,20 @@ if [ "$BZIP_COUNT" = 1 ]; then
   BZGOT=$(cd "$TMP/bzip" && find . -type f | sed 's#^\./##' | while read -r f; do
     printf '%s  %s\n' "$(shasum -a 256 "$f" | cut -d' ' -f1)" "$f"
   done | sort -k2)
-  BEMBED=$(shasum -a 256 "$BZIP" | cut -d' ' -f1)
-  COMMITTED=$(git show "HEAD:dist/wifiodds-v${VER}.zip" | shasum -a 256 | cut -d' ' -f1)
-  if [ "$GOT" != "$BZGOT" ]; then
-    printf '%s\n' "$GOT" > "$TMP/upload.files"
+  if [ "$EXPECT" != "$BZGOT" ]; then
+    printf '%s\n' "$EXPECT" > "$TMP/upload.files"
     printf '%s\n' "$BZGOT" > "$TMP/embedded.files"
     FIRST_DIFF=$(awk '
       FNR == NR { expected[$2]=$1; paths[$2]=1; next }
       { actual[$2]=$1; paths[$2]=1 }
       END { for (p in paths) if (expected[p] != actual[p]) print p }
     ' "$TMP/upload.files" "$TMP/embedded.files" | sort | head -1)
-    echo "FAIL: committed bundle embeds different package content"
-    echo "  committed upload ZIP sha256: $COMMITTED"
-    echo "  embedded bundle ZIP sha256:  $BEMBED"
-    echo "  first differing path:        $FIRST_DIFF"
+    echo "FAIL: candidate bundle package content differs from HEAD:extension"
+    echo "  first differing path: $FIRST_DIFF"
     FAIL=1
   fi
 else
-  echo "FAIL: committed bundle must contain exactly one wifi-odds-extension-${VER}.zip (found $BZIP_COUNT)"; FAIL=1
+  echo "FAIL: candidate bundle must contain exactly one wifi-odds-extension-${VER}.zip (found $BZIP_COUNT)"; FAIL=1
 fi
 
 # The manifest alongside the embedded package must describe the same content.
@@ -85,9 +92,9 @@ BMAN_COUNT=$(find "$TMP/b" -name "wifiodds-v${VER}.files.sha256" -type f | wc -l
 BMAN=$(find "$TMP/b" -name "wifiodds-v${VER}.files.sha256" -type f | head -1)
 if [ "$BMAN_COUNT" = 1 ]; then
   BMANGOT=$(sort -k2 "$BMAN")
-  [ "$GOT" = "$BMANGOT" ] || { echo "FAIL: bundle file manifest differs from the committed upload manifest"; FAIL=1; }
+  [ "$EXPECT" = "$BMANGOT" ] || { echo "FAIL: bundle file manifest differs from HEAD:extension"; FAIL=1; }
 else
-  echo "FAIL: committed bundle must contain exactly one wifiodds-v${VER}.files.sha256 (found $BMAN_COUNT)"; FAIL=1
+  echo "FAIL: candidate bundle must contain exactly one wifiodds-v${VER}.files.sha256 (found $BMAN_COUNT)"; FAIL=1
 fi
 
 # The owner-cleared screenshots must be reused byte-for-byte. The provenance
@@ -142,8 +149,8 @@ if [ -n "$BSUBMIT" ]; then
     echo "FAIL: bundled SUBMIT-${VER}.md still carries a retired no-automatic-reordering claim"; FAIL=1
   fi
   printf '%s' "$BS" | grep -qi "automatically sorts" || { echo "FAIL: bundled SUBMIT-${VER}.md does not disclose automatic sorting"; FAIL=1; }
-  printf '%s' "$BS" | grep -qi "not lower\|unknown, not worse" || { echo "FAIL: bundled SUBMIT-${VER}.md does not state that unscored airlines are unknown, not worse"; FAIL=1; }
-  printf '%s' "$BS" | grep -qi "turned off in Settings" || { echo "FAIL: bundled SUBMIT-${VER}.md does not say sorting can be turned off"; FAIL=1; }
+  printf '%s' "$BS" | grep -qiE "not lower|unknown,? (not|rather than) worse" || { echo "FAIL: bundled SUBMIT-${VER}.md does not state that unscored airlines are unknown, not worse"; FAIL=1; }
+  printf '%s' "$BS" | grep -qiE "turn(ed| this)? off in Settings" || { echo "FAIL: bundled SUBMIT-${VER}.md does not say sorting can be turned off"; FAIL=1; }
   # 3c. STALE VERSION COPY (R23 Answer 2): the bundled copy must name the shipped version and must
   #     not present any pre-3.0 public version (2.2.0, or the never-public 2.3 / 2.4 intermediates)
   #     as current. Historical references are not needed in this doc, so any hit is a failure.
@@ -154,8 +161,6 @@ if [ -n "$BSUBMIT" ]; then
 else
   echo "FAIL: committed bundle has no SUBMIT-${VER}.md"; FAIL=1
 fi
-rm -rf "$TMP"
-
 # 4. the repository SUBMIT SOURCE must also match the shipped product (round 20 P1).
 SUBMIT=$(git show "HEAD:store-assets/${ADIR}/SUBMIT-${VER}.md")
 printf '%s' "$SUBMIT" | grep -qF "$DESC" || { echo "FAIL: SUBMIT-${VER}.md does not quote the exact committed manifest description"; FAIL=1; }
@@ -166,8 +171,8 @@ if printf '%s' "$SUBMIT" | grep -qiE "no automatic reordering|booking site's own
   echo "FAIL: SUBMIT-${VER}.md still carries a retired no-automatic-reordering claim"; FAIL=1
 fi
 printf '%s' "$SUBMIT" | grep -qi "automatically sorts" || { echo "FAIL: SUBMIT-${VER}.md does not disclose automatic sorting"; FAIL=1; }
-printf '%s' "$SUBMIT" | grep -qi "not lower\|unknown, not worse" || { echo "FAIL: SUBMIT-${VER}.md does not state that unscored airlines are unknown, not worse"; FAIL=1; }
-printf '%s' "$SUBMIT" | grep -qi "turned off in Settings" || { echo "FAIL: SUBMIT-${VER}.md does not say sorting can be turned off"; FAIL=1; }
+printf '%s' "$SUBMIT" | grep -qiE "not lower|unknown,? (not|rather than) worse" || { echo "FAIL: SUBMIT-${VER}.md does not state that unscored airlines are unknown, not worse"; FAIL=1; }
+printf '%s' "$SUBMIT" | grep -qiE "turn(ed| this)? off in Settings" || { echo "FAIL: SUBMIT-${VER}.md does not say sorting can be turned off"; FAIL=1; }
 printf '%s' "$SUBMIT" | grep -qi "prioritize\|move scored" || { echo "FAIL: SUBMIT-${VER}.md does not describe the explicit mixed-carrier action"; FAIL=1; }
 # 4b. stale version copy in the SOURCE, same rule as 3c.
 printf '%s' "$SUBMIT" | grep -qF "v${VER}" || { echo "FAIL: SUBMIT-${VER}.md never names v${VER}"; FAIL=1; }
@@ -175,4 +180,4 @@ if printf '%s' "$SUBMIT" | grep -qE '\b2\.2\.0\b|\bv2\.2\b|\bv2\.3\b|\bv2\.4\b|\
   echo "FAIL: SUBMIT-${VER}.md carries stale pre-3.0 version copy"; FAIL=1
 fi
 
-[ "$FAIL" = 0 ] && echo "store-verify OK · committed artifacts == HEAD:extension · bundle embeds them · store copy matches the shipped product (v${VER})" || { echo "store-verify FAILED — do not upload"; exit 1; }
+[ "$FAIL" = 0 ] && echo "store-verify OK · candidate identity matches HEAD:extension · bundle embeds it · store copy matches the shipped product (v${VER})" || { echo "store-verify FAILED — do not upload"; exit 1; }

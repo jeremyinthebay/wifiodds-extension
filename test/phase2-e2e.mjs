@@ -45,6 +45,13 @@ cpSync(EXT_SRC, EXT, { recursive: true });
  * exits nonzero with the EXPECTED check named (asserted by mutation-matrix.mjs).
  * E2E_MUT=<name> applies one; E2E_NEG=1 is the legacy alias for bug3-loading. */
 const MUTATIONS = {
+  "navan-time-node-separator-removed": {
+    file: "content.js",
+    from: 'return parts.join(" ");',
+    to: 'return parts.join("");',
+    expect: "navan-time-boundary-extra-digit",
+    note: "adjacent Navan text nodes collapse 5 + 5:45 pm into the impossible 55:45 pm",
+  },
   "bug3-loading": {
     file: "content.js",
     from: "pendingPredict.size > 0 || navanHasUnresolved()",
@@ -466,7 +473,7 @@ function navanFixture({ o, d, rows = [], topHtml = "" }) {
   const rowHtml = rows.map((r) =>
     `<div class="flight-card" style="padding:12px;border-bottom:1px solid #ccc">
        <span class="flight-card-info__airline__number">${r.label}</span> ·
-       <span class="tm">${r.time}</span> — ${o} to ${d}
+       ${r.timePrefix ? `<span hidden>${r.timePrefix}</span>` : ""}<span class="tm">${r.time}</span> — ${o} to ${d}
      </div>`).join("\n");
   return `<!doctype html><html><head><meta charset="utf-8"><title>Navan — Departure Flights</title></head>
     <body style="font-family:sans-serif;padding:24px">
@@ -485,9 +492,28 @@ function googleFlightsFixture() {
   </ul></body></html>`;
 }
 function googleFlightsAlaskaFixture() {
-  return `<!doctype html><html><body><h1>Flights SEA to SFO</h1><ul>
-    <li style="padding:12px">8:30 a.m. – 10:20 a.m. · Alaska · AS 330 · SEA to SFO</li>
-  </ul></body></html>`;
+  return `<!doctype html><html><head><meta charset="utf-8"><title>Flights · SEA to SFO</title>
+    <style>
+      *{box-sizing:border-box}body{margin:0;color:#202124;background:#fff;font:14px Arial,sans-serif}
+      header{height:64px;border-bottom:1px solid #dadce0;display:flex;align-items:center;padding:0 28px;gap:28px}
+      .brand{font-size:22px;color:#3c4043}.brand b{color:#1a73e8;font-weight:500}
+      .search{width:720px;margin:28px auto 18px;border:1px solid #dadce0;border-radius:16px;box-shadow:0 1px 3px #d9dce1;padding:16px 20px}
+      .search strong{display:block;font-size:18px;margin-bottom:6px}.muted{color:#5f6368}
+      .filters{width:720px;margin:0 auto 26px;display:flex;gap:10px}.filters button{background:#fff;border:1px solid #dadce0;border-radius:18px;padding:8px 14px;color:#3c4043}
+      main{width:720px;margin:auto}h1{font-size:20px;font-weight:500;margin:0 0 8px}.sub{margin:0 0 16px;color:#5f6368}
+      .results{list-style:none;margin:0;padding:0}.card{min-height:112px;border:1px solid #dadce0;border-radius:12px;margin:0 0 12px;padding:18px 20px;display:grid;grid-template-columns:52px 1fr 120px;gap:16px;align-items:center}
+      .logo{width:40px;height:40px;border-radius:50%;background:#123f73;color:#fff;display:grid;place-items:center;font-weight:700}
+      .times{font-size:18px;margin-bottom:8px}.meta{color:#5f6368}.price{text-align:right;font-size:17px;font-weight:600}.price small{display:block;color:#5f6368;font-size:12px;font-weight:400;margin-top:5px}
+    </style></head><body>
+    <header><div class="brand"><b>Flights</b></div><div class="muted">Explore · Tracked prices</div></header>
+    <section class="search" data-fixture="flight-search-summary"><strong>Seattle (SEA) → San Francisco (SFO)</strong><span class="muted">Round trip · 1 passenger · Economy</span></section>
+    <nav class="filters" aria-label="Flight filters">
+      <button data-fixture="flight-filter">Stops</button><button data-fixture="flight-filter">Airlines</button><button data-fixture="flight-filter">Bags</button><button data-fixture="flight-filter">Times</button>
+    </nav>
+    <main><h1 data-fixture="flight-results-heading">Best departing flights</h1><p class="sub">Ranked by price and convenience</p><ul class="results">
+      <li class="card" data-fixture="flight-result-card"><div class="logo" aria-hidden="true">✈</div><div><div class="times">8:30 a.m. – 10:20 a.m.</div><div class="meta">Alaska · AS 330 · SEA to SFO · Nonstop</div></div><div class="price">$129<small>round trip</small></div></li>
+      <div class="card" data-fixture="flight-result-card"><div class="logo" style="background:#6b4fa1" aria-hidden="true">✈</div><div><div class="times">11:15 a.m. – 1:29 p.m.</div><div class="meta">Delta · DL 2943 · SEA to SFO · Nonstop</div></div><div class="price">$147<small>round trip</small></div></div>
+    </ul></main></body></html>`;
 }
 
 function alaskaFixture({ o, d, rows = [] }) {
@@ -999,13 +1025,19 @@ const CASES = [
         const chip = document.querySelector(".usl-gf-live");
         const drawer = document.getElementById(chip?.getAttribute("aria-controls"));
         return { chip: chip?.textContent || "", drawer: drawer?.innerText || "",
-          source: chip?.dataset.evidenceSource || "" };
+          source: chip?.dataset.evidenceSource || "",
+          searchSummary: document.querySelector('[data-fixture="flight-search-summary"]')?.textContent || "",
+          resultsHeading: document.querySelector('[data-fixture="flight-results-heading"]')?.textContent || "",
+          resultCards: document.querySelectorAll('[data-fixture="flight-result-card"]').length,
+          filterControls: document.querySelectorAll('[data-fixture="flight-filter"]').length };
       });
       return { appeared: true, panelText: state.drawer, badges: [], probe: state, checks: {
         alaskaFlightDetected: /NEXT-GEN 64%/.test(state.chip),
         alaskaTrackerDisclosed: state.source === "alaskastarlinktracker.com" &&
           /REPORTED/.test(state.drawer) && /alaskastarlinktracker\.com/.test(state.drawer),
         unitedTrackerAbsent: !/unitedstarlinktracker\.com/.test(state.drawer),
+        recognizableFlightSearchContext: /SEA/.test(state.searchSummary) && /SFO/.test(state.searchSummary) &&
+          /departing flights/i.test(state.resultsHeading) && state.resultCards >= 2 && state.filterControls >= 3,
       } };
     },
   },
@@ -1599,6 +1631,45 @@ const CASES = [
       { label: "Southwest 4785", time: "7:20 a.m." },
     ],
     expect: () => ({}),
+  },
+  {
+    // Owner-reported production defect, 12 Aug 2026: Navan visibly showed
+    // UA1007 at 5:45 pm while an adjacent structural text node made the
+    // extension display the impossible value 55:45 pm. Keep a second flight
+    // unchanged so the repair cannot broadly rewrite valid times.
+    name: "navan-time-boundary-extra-digit",
+    navan: true, o: "DEN", d: "SFO",
+    rows: [
+      { label: "United 1007", timePrefix: "5", time: "5:45 pm" },
+      { label: "United 1214", time: "7:10 pm" },
+    ],
+    mock: { o: "DEN", d: "SFO", predict: { "UA1007": 0.68, "UA1214": 0.42 } },
+    driver: async ({ page, url }) => {
+      await page.goto(url, { waitUntil: "domcontentloaded" });
+      await page.waitForSelector(".usl-panel", { timeout: 30000 });
+      await page.waitForFunction(() => {
+        const text = document.querySelector(".usl-panel")?.innerText || "";
+        return text.includes("UA1007") && text.includes("UA1214");
+      }, { timeout: 12000 });
+      const rendered = await page.$$eval(".usl-row.usl-jump", (rows) => Object.fromEntries(rows.map((row) => [
+        row.dataset.fn,
+        row.querySelector(".usl-time")?.textContent.trim() || "",
+      ])));
+      const values = Object.values(rendered);
+      const validTime = /^(?:·\s)?(?:(?:0?[1-9]|1[0-2]):[0-5]\d\s?[ap]\.?(?:m\.?)?|(?:[01]?\d|2[0-3]):[0-5]\d)$/i;
+      return {
+        appeared: true,
+        panelText: await page.$eval(".usl-panel", (e) => e.innerText),
+        badges: [],
+        probe: rendered,
+        checks: {
+          ua1007UsesVisibleHostTime: rendered.UA1007 === "· 5:45 pm",
+          noImpossibleExtraFive: !values.some((v) => /55:45/i.test(v)),
+          everyRenderedTimeValid: values.length === 2 && values.every((v) => validTime.test(v)),
+          ua1214Unchanged: rendered.UA1214 === "· 7:10 pm",
+        },
+      };
+    },
   },
   {
     // A Navan single-page transition can keep the same URL and the same route

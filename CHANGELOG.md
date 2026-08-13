@@ -23,6 +23,10 @@ Chrome Web Store: not uploaded. Exact extension candidate review is pending.
 ### Fixed
 
 - Screen readers retain Navan's United-only sorting clause and omit it on other booking sites.
+- Navan flight times now come from the valid time shown in the result row. Adjacent page text can
+  no longer turn `5:45 pm` into an impossible value such as `55:45 pm`.
+- The Store verification gate now checks the exact candidate bundle and metadata used for review;
+  it no longer expects release ZIPs to be committed to Git.
 
 ### Exact model pin
 
