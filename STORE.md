@@ -11,7 +11,7 @@ dashboard source of truth.
 - Site model: pinned to Claude-reviewed, live site commit
   `cae8be119b83abff12f57877c1cf344b03b8b6b8` and model blob
   `8b04acd3a7c88f7dea86d5367a5de1ffc125222e`.
-- Screenshots: four 1280×800 fixture captures were frozen from committed source `9a2f1fe` only
+- Screenshots: four 1280×800 fixture captures were frozen from committed source `6ecac4a` only
   after the full browser gate passed. The Google Flights image now shows a recognizable search and
   results page rather than an empty fixture. The release bundle carries the exact provenance block.
 - Privacy and permissions: unchanged from the published 3.0.2 listing. The v3.1.0 package adds no

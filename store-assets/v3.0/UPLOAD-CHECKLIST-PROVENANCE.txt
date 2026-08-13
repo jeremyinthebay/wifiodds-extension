@@ -1,3 +1,3 @@
   Screenshot provenance: deterministic 1280x800 browser-fixture captures from
-    committed extension source 9a2f1fededdf58f8431ea4566e93ec17a20d9b7c,
-    copied into the release set 2026-08-13T05:09:35Z only after the full Phase 2 gate passed.
+    committed extension source 6ecac4ae825b06d2b0c63bdafe0f55b24b54c07b,
+    copied into the release set 2026-08-13T05:12:41Z only after the full Phase 2 gate passed.
