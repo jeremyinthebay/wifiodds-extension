@@ -1382,6 +1382,10 @@ const CASES = [
           !FN.test(HT(r)) && !!r.querySelector(".usl-metrics, .usl-badge"));
       });
       const P = pre.order, Q = post.order, C = corrected.order;
+      const captureScrollTop = await page.$eval(".usl-panel", (panel) => {
+        panel.scrollTop = 0;
+        return panel.scrollTop;
+      });
       const checks = {
         keyboardActivated: focused === true,
         preOrderUnchanged: eq(P, ["STRUCT", "FRONTIER1229", "UA1596", "UA3999", "FRONTIER3435", "UA2402"]),
@@ -1405,6 +1409,7 @@ const CASES = [
         streamingDescribesScale: /streaming[^\n]*out of 100/i.test(panelText),
         noVisibleConnectScore: !/connectscore/i.test(panelText),
         navanComputedNameRetainsUnscoredUnitedClause: /unscored flights remain after scored United flights/.test(navanDecisionName),
+        captureStartsAtPanelHeader: captureScrollTop === 0,
       };
       return { appeared: true, panelText, badges, probe: { pre: P, post: Q, corrected: C, navanDecisionName }, checks };
     },
