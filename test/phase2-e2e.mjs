@@ -1202,10 +1202,10 @@ const CASES = [
       return {
         valueLabelledNextGen: /NEXT-GEN 68%/.test(g.text || ""),
         evidenceOutsideValue: /68% 51 tracked/.test(g.text || ""),
-        streamingSecondary: /STREAMING 42 Streaming score/.test(g.text || ""),
+        streamingSecondary: /STREAMING 44 Streaming score/.test(g.text || ""),
         rampOnRealProbability: g.rampOnValue === true,
         confirmTokenSeparate: g.confirm === true,
-        fullAccessibleSentence: /68% historical per-flight next-gen odds from 51 tracked departures\. High confidence\. Evidence: REPORTED · unitedstarlinktracker\.com · source date not provided\. Streaming score 42 out of 100 across this airline's fleet\. Evidence: MODELLED · wifiodds\.com frozen fleet-source ledger · 2026-07/.test(g.aria || ""),
+        fullAccessibleSentence: /68% historical per-flight next-gen odds from 51 tracked departures\. High confidence\. Evidence: REPORTED · unitedstarlinktracker\.com · source date not provided\. Streaming score 44 out of 100 across this airline's fleet\. Evidence: MODELLED · wifiodds\.com frozen fleet-source ledger · 2026-07/.test(g.aria || ""),
         accessibleCarriesExactDate: /Confirmed Starlink tail N127UA for \d{4}-\d{2}-\d{2}/.test(g.aria || ""),
         panelRowShowsSampleSize: /51 flights/.test(txt),
         stripConfirmSeparateFact: /✓ Confirmed for \d{4}-\d{2}-\d{2}/.test(txt),
@@ -2328,7 +2328,7 @@ const CASES = [
         evidenceShown: /51 tracked/.test(g.text || ""),
         streamingScoreWordShown: /Streaming score/.test(g.text || ""),
         accessibleSaysPerFlight: /historical per-flight next-gen odds/.test(g.aria || ""),
-        accessibleSaysStreaming: /Streaming score 42 out of 100 across this airline's fleet/.test(g.aria || ""),
+        accessibleSaysStreaming: /Streaming score 44 out of 100 across this airline's fleet/.test(g.aria || ""),
         nextGenEvidenceIsTracker: !!g.nextEvidence && g.nextEvidence.tier === "REPORTED" &&
           g.nextEvidence.source === "unitedstarlinktracker.com" &&
           g.nextEvidence.date === "source date not provided",
