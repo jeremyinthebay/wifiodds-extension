@@ -10,8 +10,8 @@ dashboard source of truth.
 - Site model: pinned to Claude-reviewed, live site commit
   `cae8be119b83abff12f57877c1cf344b03b8b6b8` and model blob
   `8b04acd3a7c88f7dea86d5367a5de1ffc125222e`.
-- Screenshots: four replacement captures must come from the committed, pinned candidate. The
-  provisional capture pipeline writes outside release assets and cannot supply an upload image.
+- Screenshots: four 1280×800 replacement captures were generated from committed source `4a7d6f0`
+  after the full browser gate passed. The release bundle carries their exact provenance block.
 - Privacy and permissions: unchanged from the published 3.0.2 listing. The v3.1.0 package adds no
   host, permission, stored field, collection, transmission, or retention behavior.
 

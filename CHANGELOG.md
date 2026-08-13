@@ -11,7 +11,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [3.1.0] - 2026-08-12
 
-Chrome Web Store: not uploaded. Candidate assembly waits for the exact reviewed website model.
+Chrome Web Store: not uploaded. Exact extension candidate review is pending.
 
 ### Changed
 
