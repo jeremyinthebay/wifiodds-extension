@@ -512,7 +512,7 @@ function googleFlightsAlaskaFixture() {
     </nav>
     <main><h1 data-fixture="flight-results-heading">Best departing flights</h1><p class="sub">Ranked by price and convenience</p><ul class="results">
       <li class="card" data-fixture="flight-result-card"><div class="logo" aria-hidden="true">✈</div><div><div class="times">8:30 a.m. – 10:20 a.m.</div><div class="meta">Alaska · AS 330 · SEA to SFO · Nonstop</div></div><div class="price">$129<small>round trip</small></div></li>
-      <div class="card" data-fixture="flight-result-card"><div class="logo" style="background:#6b4fa1" aria-hidden="true">✈</div><div><div class="times">11:15 a.m. – 1:29 p.m.</div><div class="meta">Delta · DL 2943 · SEA to SFO · Nonstop</div></div><div class="price">$147<small>round trip</small></div></div>
+      <li class="card" data-fixture="flight-result-card"><div class="logo" style="background:#6b4fa1" aria-hidden="true">✈</div><div><div class="times">11:15 a.m. – 1:29 p.m.</div><div class="meta">Delta · DL 2943 · SEA to SFO · Nonstop</div></div><div class="price">$147<small>round trip</small></div></li>
     </ul></main></body></html>`;
 }
 
