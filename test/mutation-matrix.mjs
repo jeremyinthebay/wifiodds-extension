@@ -22,6 +22,7 @@ const ONLY = process.env.MUTATION_ONLY ? new RegExp(process.env.MUTATION_ONLY) :
 
 // mutation → the focused case filter, and the case whose FAIL must name it.
 const MATRIX = {
+  "navan-time-node-separator-removed": { only: "navan-time-boundary-extra-digit", expect: "navan-time-boundary-extra-digit" },
   "bug3-loading":           { only: "navan-loading-then-terminal", expect: "navan-loading-then-terminal" },
   "missing-conf-eligible":  { only: "united-strip-lowgrade|navan-strip-missing-conf", expect: "united-strip-lowgrade" },
   "false-confirm-token":    { only: "SFO-DEN-positive", expect: "SFO-DEN-positive" },
@@ -78,7 +79,7 @@ const MATRIX = {
   "first-run-no-permission-request": { gate: FIRST_RUN_GATE, only: "first-run-coverage", expect: "first-run-coverage" },
   "first-run-add-tabs-permission": { gate: FIRST_RUN_GATE, only: "first-run-coverage", expect: "first-run-coverage" },
 };
-const CONTROLS_EXPECTED = 50;
+const CONTROLS_EXPECTED = 51;
 
 // Owner ruling, 3 Aug 2026: keep these honest-degradation states, but never
 // manufacture a green mutation result for branches no supported host can
