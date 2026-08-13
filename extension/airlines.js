@@ -6,8 +6,8 @@
  * `sh build-airlines-parity.sh [--write]`; the release gate runs the same
  * comparison, so drift fails a build instead of surviving in a comment.
  *
- * PINNED SITE COMMIT: 18b22ae2adfde3b8de66b60d9fa761f0089f9597
- * PINNED MODEL BLOB:  238e587495f0ec580977d1b3b19747e36fcaa08b
+ * PINNED SITE COMMIT: cae8be119b83abff12f57877c1cf344b03b8b6b8
+ * PINNED MODEL BLOB:  8b04acd3a7c88f7dea86d5367a5de1ffc125222e
  *
  * The site model refreshes daily while the Web Store upload is Jeremy's manual
  * step, so a bundle checked against "the current file" can age between build
@@ -169,13 +169,13 @@ const WIFI_AIRLINES = {
   /* ── instrumented: the extension can show real per-flight odds for these ── */
   united: {
     name: "United", code: "UA", asOf: "2026-07",
-    nextGenSplit: { mainline: { n: 147, of: 1144 }, regional: { n: 341, of: 671 } },
+    nextGenSplit: { mainline: { n: 172, of: 1144 }, regional: { n: 341, of: 671 } },
     /* equipped/fleet MUST equal united/data.json fleet.equipped / fleet.total.
        They had drifted to 481/1807 while data.json said 481/1808, so the same
        homepage printed "481 of 1,807 (27%)" on the US card and "of 1,808
        aircraft" in the United section. build/prerender.js reconciles them from
        data.json on every build, and fails if it cannot find them. */
-    system: "starlink", equipped: 488, fleet: 1815, free: "loyalty-free",
+    system: "starlink", equipped: 513, fleet: 1815, free: "loyalty-free",
     instrumented: true, tracker: "unitedstarlinktracker.com",
     resolution: "tail",
     serviceTier: "mixed", restTier: "unknown",
@@ -192,7 +192,7 @@ const WIFI_AIRLINES = {
        creep stale by a handful of aircraft between joins. Re-run the join, do
        not nudge the numbers. */
     segments: [
-      { system: "starlink", n: 488, free: "loyalty-free", as: "2026-08-01",
+      { system: "starlink", n: 513, free: "loyalty-free", as: "2026-08-11",
         src: "united/data.json, the daily pull from unitedstarlinktracker.com",
         note: "Free for MileagePlus members, and joining is free." },
       { system: "viasat", n: 525, free: "paid", as: "2026-07-25",
@@ -212,8 +212,8 @@ const WIFI_AIRLINES = {
           "of them are in the Starlink programme, so this row shrinks when the " +
           "aircraft retire rather than when installs proceed." },
     ],
-    unresolved: { n: 229, why: "the tracker publishes no system for these tails" },
-    note: "488 of 1,815 aircraft, free for MileagePlus members. Odds swing a lot by route and aircraft type.",
+    unresolved: { n: 204, why: "the tracker publishes no system for these tails" },
+    note: "513 of 1,815 aircraft, free for MileagePlus members. Odds swing a lot by route and aircraft type.",
   },
   alaska: {
     name: "Alaska", code: "AS", asOf: "2026-07",
@@ -438,9 +438,28 @@ const WIFI_AIRLINES = {
     nextGenSplit: "no-regional-fleet",
     /* CORRECTED 2026-07-25. Hawaiian NEVER had Viasat — it went from no wifi at
        all straight to Starlink in 2024, and the site used to imply otherwise.
-       fleet is 66, not the 61 that was here: 61 counted the A330s and A321neos
-       and the 717s, and left out the 787-9s. */
-    system: "starlink", equipped: 42, fleet: 66, free: "free",
+       That part stands.
+
+       RE-CORRECTED 2026-08-01, owner ruling. The 25 Jul note also raised fleet
+       61 -> 66 on the reasoning that 61 "left out the 787-9s". That reasoning was
+       BACKWARDS and the 66 came with it. The tracker did not forget those
+       aircraft: they are not Hawaiian's. Alaska Air Group's own type pages list
+       only the A330-200 (24), A321neo (18) and 717-200 (19) under Hawaiian —
+       24+18+19 = 61 — while Alaska's newsroom calls the 787-9s "its" fleet and
+       flies them Alaska-branded from Seattle to Seoul, London and Rome. Trade
+       press reports four transferring from Hawaiian by spring 2026, after which
+       Hawaiian's long-haul fleet is all-Airbus again; that is corroboration for
+       the DATE, not the basis for the attribution.
+
+       Two things stated plainly because this revision FLATTERS our own number
+       (64% -> 69%), which is the direction that deserves the most scrutiny:
+       no publisher-of-record document says in as many words that Hawaiian
+       operates zero 787-9s — the group fleet page is combined and splits nothing
+       by brand — and the 787-9 segment is DELETED here rather than set to zero.
+       A `none` segment asserts "the airline has these and they are unequipped";
+       for aircraft the airline does not operate at all that is a different and
+       wrong claim, the same absent-vs-zero confusion that shipped once before. */
+    system: "starlink", equipped: 42, fleet: 61, free: "free",
     tracker: "airlinestarlinktracker.com",
     resolution: "type",
     serviceTier: "mixed", restTier: "unknown",
@@ -453,11 +472,11 @@ const WIFI_AIRLINES = {
         note: "The Boeing 717 interisland fleet, roughly 150 flights a day. These " +
           "aircraft have never carried connectivity and the group has said twice " +
           "that they never will." },
-      { system: "none", n: 5, free: "none", as: "2026-07",
-        src: "Hawaiian 787 Starlink announcement",
-        note: "787-9s. Nothing today; Starlink from fall 2026." },
+      /* The 5-aircraft 787-9 `none` segment was REMOVED 2026-08-01: those
+         aircraft fly for Alaska, so they were never Hawaiian's to count as
+         unequipped. See the re-correction note above. */
     ],
-    note: "42 of 66. The A330 and A321neo fit is complete; the 19 Boeing 717s have never had wifi at all.",
+    note: "42 of 61. The A330 and A321neo fit is complete; the 19 Boeing 717s have never had wifi at all. The 787-9s fly for Alaska, not Hawaiian, and are counted there.",
   },
   qatar: {
     name: "Qatar Airways", code: "QR", asOf: "2026-01",
@@ -997,14 +1016,14 @@ const SYSTEM_LABEL = {
 };
 
 const SCORE_CAVEAT =
-  "ConnectScore is a conservative whole-fleet lower bound, not an expected value or a prediction about one flight: " +
+  "Streaming score is a conservative whole-fleet lower bound, not an expected value or a prediction about one flight: " +
   "United measured 320, 56 and 15 Mbps on three systems in one livery in one reporting period. " +
   "Aircraft whose system an airline does not publish stay in the denominator and add zero to the " +
   "lower bound rather than being dropped from it. Signed-but-unflown deals (AA Starlink 2027, " +
   "DL/B6 Amazon Leo) score zero until they fly.";
 
 const SCORE_METHOD_LINE =
-  "ConnectScore = the sum, over every segment of the fleet, of whole-fleet share × system quality × " +
+  "Streaming score = the sum, over every segment of the fleet, of whole-fleet share × system quality × " +
   "free-for-you. Unresolved aircraft stay in the denominator and add zero, so the published score " +
   "is a whole-fleet lower bound. " +
   "Data: unitedstarlinktracker.com · alaskastarlinktracker.com · airline announcements (Jul 2026).";
@@ -1033,7 +1052,7 @@ const PROJECTION_METHOD_LINE =
   "Projected score = committed aircraft ÷ the same known-fleet denominator the next-gen odds " +
   "use × 1.00 for low-earth orbit × free-for-you. It is the next-gen number a fleet would carry " +
   "if the announced deal lands as announced, so read it against next-gen odds and never against " +
-  "the ConnectScore. A projection never moves the leaderboard and it carries its date and its " +
+  "the Streaming score. A projection never moves the leaderboard and it carries its date and its " +
   "confidence wherever it appears. FIRM: count and date both published. SOFT: one of the two is " +
   "secondary reporting. SLIPPED: the announced date has passed with nothing installed, computed " +
   "from the build date rather than stored. A committed share of a fleet is not a measurement — " +
@@ -1300,8 +1319,13 @@ function nextGenShare(entry) {
 function nextGenScore(entry) {
   if (!entry) return 0;
   const L = ledgerFor(entry);
-  if (L) return Math.round(clamp01(L.rawNextGen) * 100);
-  return Math.round(clamp01(nextGenShare(entry) * freeFactor(entry.free)) * 100);
+  const raw = L
+    ? clamp01(L.rawNextGen)
+    : clamp01(nextGenShare(entry) * freeFactor(entry.free));
+  /* A confirmed fraction may round below one whole point (Southwest is 1 of
+   * 803). Preserve that evidence at the model boundary so every public
+   * consumer — API, HTML, and guidance — receives the same nonzero score. */
+  return raw > 0 ? Math.max(1, Math.round(raw * 100)) : 0;
 }
 
 /* True unless nextGenScore's 0 is a false zero: a segmented entry with

@@ -6,9 +6,10 @@ dashboard source of truth.
 
 ## Current status
 
-- Source: pre-candidate only. It has no reviewed Store ZIP.
-- Site model: waiting for Claude PASS on site candidate
-  `8d8c7ef491bdb49a1912fbd4e494cbf759931f41` before the extension can pin it.
+- Source: final candidate preparation. It has no reviewed Store ZIP yet.
+- Site model: pinned to Claude-reviewed, live site commit
+  `cae8be119b83abff12f57877c1cf344b03b8b6b8` and model blob
+  `8b04acd3a7c88f7dea86d5367a5de1ffc125222e`.
 - Screenshots: four replacement captures must come from the committed, pinned candidate. The
   provisional capture pipeline writes outside release assets and cannot supply an upload image.
 - Privacy and permissions: unchanged from the published 3.0.2 listing. The v3.1.0 package adds no

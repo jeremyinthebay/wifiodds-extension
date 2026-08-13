@@ -2882,11 +2882,11 @@ const CASES = [
         appeared: true, panelText: JSON.stringify(out, null, 1), badges: [], probe: out,
         checks: {
           eighteenAirlines: out.n === 18,
-          unitedWholeFleet: eq(out.v.united, [27, 42]),
+          unitedWholeFleet: eq(out.v.united, [28, 44]),
           airBalticWholeFleet: eq(out.v.airbaltic, [51, 51]),
           qatarWholeFleet: eq(out.v.qatar, [50, 53]),
           westjetWholeFleet: eq(out.v.westjet, [52, 52]),
-          positiveNextGenCount: out.positive === 12,
+          positiveNextGenCount: out.positive === 13,
         },
       };
     },

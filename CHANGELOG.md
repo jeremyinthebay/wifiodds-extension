@@ -24,11 +24,11 @@ Chrome Web Store: not uploaded. Candidate assembly waits for the exact reviewed 
 
 - Screen readers retain Navan's United-only sorting clause and omit it on other booking sites.
 
-### Pending exact model pin
+### Exact model pin
 
-- The approved site candidate updates grounded airline data separately from the terminology change,
-  including United from 42 to 44 and Hawaiian from 64 to 69. These values enter the extension only
-  after Claude PASSes site `8d8c7ef491bdb49a1912fbd4e494cbf759931f41` and the release pin advances.
+- The release pins reviewed site commit `cae8be119b83abff12f57877c1cf344b03b8b6b8`, which updates
+  grounded airline data separately from the terminology change, including United from 42 to 44 and
+  Hawaiian from 64 to 69.
 
 ## [3.0.3] - 2026-08-12
 
