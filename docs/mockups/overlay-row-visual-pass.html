@@ -1,0 +1,548 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WiFi Odds · booking-row visual pass</title>
+  <style>
+    :root {
+      color-scheme: light;
+
+      /* Exact light tokens from SmithFamAI/wifiodds assets/site.css. */
+      --wo-ground: #fbf8f2;
+      --wo-surface: #fbf8f2;
+      --wo-card: #ffffff;
+      --wo-ink: #29241c;
+      --wo-ink-soft: #443d32;
+      --wo-muted: #6e6557;
+      --wo-line: #e3daca;
+      --wo-line-soft: #ece5d6;
+      --wo-accent: #2d5a7d;
+      --wo-violet: #5b4a99;
+      --wo-good: #1e7a46;
+      --wo-mixed: #975e00;
+      --wo-long: #a84b2f;
+      --wo-zero: #716a62;
+
+      --page-max: 1120px;
+      font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--wo-ground);
+      color: var(--wo-ink);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-width: 320px;
+      background: var(--wo-ground);
+      color: var(--wo-ink);
+    }
+
+    .page {
+      width: min(var(--page-max), calc(100% - 40px));
+      margin: 0 auto;
+      padding: 54px 0 72px;
+    }
+
+    .eyebrow {
+      margin: 0 0 10px;
+      color: var(--wo-accent);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      max-width: 780px;
+      margin: 0;
+      font-size: clamp(34px, 5vw, 58px);
+      line-height: .98;
+      letter-spacing: -.055em;
+    }
+
+    .lede {
+      max-width: 720px;
+      margin: 18px 0 0;
+      color: var(--wo-muted);
+      font-size: 15px;
+      line-height: 1.55;
+    }
+
+    .scope {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      margin-top: 18px;
+      padding: 0 10px;
+      border: 1px solid var(--wo-line);
+      border-radius: 7px;
+      color: var(--wo-muted);
+      background: var(--wo-card);
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .board {
+      margin-top: 42px;
+      border: 1px solid var(--wo-line);
+      border-radius: 16px;
+      overflow: hidden;
+      background: var(--wo-card);
+    }
+
+    .host {
+      padding: 24px;
+      border-top: 1px solid var(--wo-line);
+    }
+
+    .host:first-child { border-top: 0; }
+
+    .host-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 18px;
+      margin-bottom: 12px;
+    }
+
+    .host-head h2 {
+      margin: 0;
+      font-size: 15px;
+      letter-spacing: -.02em;
+    }
+
+    .host-head p {
+      margin: 0;
+      color: var(--wo-muted);
+      font-size: 11px;
+      text-align: right;
+    }
+
+    .sample {
+      display: grid;
+      gap: 8px;
+    }
+
+    .sample-label {
+      margin: 0;
+      color: var(--wo-muted);
+      font-size: 10px;
+      font-weight: 750;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    .result-row {
+      display: grid;
+      grid-template-columns: minmax(110px, auto) minmax(190px, 1fr) auto;
+      align-items: center;
+      gap: 18px;
+      min-width: 0;
+      background: #ffffff;
+      color: #29241c;
+    }
+
+    .result-row + .sample-label { margin-top: 10px; }
+
+    .result-row--united {
+      min-height: 72px;
+      padding: 0 14px;
+      border-top: 1px solid var(--wo-line);
+      border-bottom: 1px solid var(--wo-line);
+      border-radius: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 14px;
+    }
+
+    .result-row--alaska {
+      min-height: 84px;
+      padding: 0 18px;
+      border: 1px solid var(--wo-line);
+      border-radius: 13px;
+      font-family: "Avenir Next", Avenir, "Segoe UI", sans-serif;
+      font-size: 14px;
+    }
+
+    .flight-id {
+      min-width: 0;
+      font-weight: 750;
+      letter-spacing: -.01em;
+      white-space: nowrap;
+    }
+
+    .schedule {
+      min-width: 0;
+      color: var(--wo-ink-soft);
+      font-size: 13px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .schedule small {
+      display: block;
+      margin-top: 4px;
+      color: var(--wo-muted);
+      font-size: 11px;
+    }
+
+    /* Proposed component. Static presentation only; no script or lookup. */
+    .wo-readout {
+      --readout-height: 30px;
+      --readout-radius: 8px;
+      --readout-size: 12px;
+      position: relative;
+      display: inline-flex;
+      flex: 0 0 auto;
+      flex-wrap: nowrap;
+      align-items: center;
+      justify-self: end;
+      min-height: var(--readout-height);
+      max-width: 100%;
+      overflow: hidden;
+      border: 1px solid var(--wo-line);
+      border-radius: var(--readout-radius);
+      background: var(--wo-surface);
+      color: var(--wo-ink);
+      box-shadow: none;
+      font: inherit;
+      font-size: var(--readout-size);
+      line-height: 1;
+      white-space: nowrap;
+      vertical-align: middle;
+    }
+
+    .wo-readout::before {
+      content: "";
+      align-self: stretch;
+      flex: 0 0 2px;
+      width: 2px;
+      margin-right: 8px;
+      background: linear-gradient(180deg, var(--wo-accent), var(--wo-violet));
+    }
+
+    .wo-brand {
+      flex: 0 0 auto;
+      color: var(--wo-accent);
+      font-size: 10.5px;
+      font-weight: 750;
+      letter-spacing: 0;
+    }
+
+    .wo-divider {
+      align-self: stretch;
+      flex: 0 0 1px;
+      width: 1px;
+      margin: 0 7px;
+      background: var(--wo-line-soft);
+    }
+
+    .wo-metric,
+    .wo-assignment {
+      display: inline-flex;
+      flex: 0 0 auto;
+      align-items: baseline;
+      gap: 4px;
+      min-width: 0;
+    }
+
+    .wo-metric strong {
+      font-size: 13px;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -.02em;
+    }
+
+    .wo-metric span {
+      color: var(--wo-ink-soft);
+      font-size: 11.5px;
+      font-weight: 650;
+    }
+
+    .wo-metric--good strong { color: var(--wo-good); }
+    .wo-metric--mixed strong { color: var(--wo-mixed); }
+    .wo-metric--long strong { color: var(--wo-long); }
+    .wo-metric--zero strong { color: var(--wo-zero); }
+
+    .wo-tail-title {
+      color: var(--wo-ink);
+      font-size: 13px;
+      font-weight: 780;
+      letter-spacing: -.01em;
+    }
+
+    .wo-provider {
+      color: var(--wo-muted);
+      font-size: 11.5px;
+      font-weight: 650;
+    }
+
+    .wo-confirm {
+      display: inline-flex;
+      flex: 0 0 auto;
+      align-items: center;
+      gap: 4px;
+      margin: 0 8px 0 7px;
+      color: var(--wo-muted);
+      font-size: 11px;
+      font-weight: 650;
+    }
+
+    .wo-confirm b {
+      color: var(--wo-good);
+      font-size: 11px;
+    }
+
+    .result-row--alaska .wo-readout {
+      --readout-height: 30px;
+      --readout-radius: 8px;
+      --readout-size: 12px;
+    }
+
+    .dark-proof {
+      /* Exact dark tokens from the live homepage/shared stylesheet. */
+      --wo-ground: #050505;
+      --wo-surface: #121216;
+      --wo-card: #121216;
+      --wo-ink: #ffffff;
+      --wo-ink-soft: #d3d3d8;
+      --wo-muted: #a6a6ad;
+      --wo-line: #65656d;
+      --wo-line-soft: #29292f;
+      --wo-accent: #29d8ff;
+      --wo-violet: #926cff;
+      --wo-good: #54f09b;
+      --wo-mixed: #ffd45a;
+      --wo-long: #ff698d;
+      --wo-zero: #87878f;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 18px;
+      min-height: 64px;
+      margin-top: 18px;
+      padding: 14px 16px;
+      border-radius: 12px;
+      background: var(--wo-ground);
+      color: var(--wo-ink);
+    }
+
+    .dark-proof-copy strong {
+      display: block;
+      font-size: 13px;
+    }
+
+    .dark-proof-copy span {
+      display: block;
+      margin-top: 3px;
+      color: var(--wo-muted);
+      font-size: 11px;
+    }
+
+    .dark-proof .wo-readout {
+      --readout-height: 28px;
+      --readout-radius: 7px;
+      background: rgba(18, 18, 22, .96);
+    }
+
+    .tokens {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 24px;
+    }
+
+    .token {
+      min-width: 0;
+      padding: 10px;
+      border: 1px solid var(--wo-line);
+      border-radius: 8px;
+      background: var(--wo-card);
+    }
+
+    .token i {
+      display: block;
+      width: 100%;
+      height: 4px;
+      margin-bottom: 8px;
+      border-radius: 2px;
+      background: var(--swatch);
+    }
+
+    .token b,
+    .token code {
+      display: block;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .token b { font-size: 11px; }
+    .token code { margin-top: 3px; color: var(--wo-muted); font-size: 10px; }
+
+    .note {
+      margin: 18px 0 0;
+      color: var(--wo-muted);
+      font-size: 11px;
+      line-height: 1.5;
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    @media (max-width: 760px) {
+      .page { width: min(100% - 24px, var(--page-max)); padding-top: 34px; }
+      .host { padding: 18px 12px; }
+      .host-head { align-items: flex-start; flex-direction: column; gap: 5px; }
+      .host-head p { text-align: left; }
+      .result-row { grid-template-columns: minmax(90px, auto) minmax(0, 1fr); gap: 10px; }
+      .schedule { display: none; }
+      .wo-readout { grid-column: 2; }
+      .wo-brand,
+      .wo-brand + .wo-divider { display: none; }
+      .dark-proof { grid-template-columns: 1fr; }
+      .dark-proof .wo-readout { justify-self: start; }
+      .tokens { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    }
+
+    @media (max-width: 430px) {
+      .result-row--united { padding: 0 8px; }
+      .result-row--alaska { padding: 0 10px; }
+      .wo-confirm span { display: none; }
+      .tokens { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <p class="eyebrow">Design pass · 16 Aug 2026</p>
+    <h1>One quiet readout, native to the booking row.</h1>
+    <p class="lede">
+      Historical odds stay compact and explicitly labelled. Once an aircraft is assigned,
+      the WiFi type becomes the headline and percentages step aside.
+    </p>
+    <div class="scope">Static HTML/CSS · no lookup logic · no toggle · no Store change</div>
+
+    <section class="board" aria-label="Booking row mockups">
+      <article class="host">
+        <header class="host-head">
+          <h2>Light United-like result row</h2>
+          <p>Flat 72px row · host font inherited · 30px readout</p>
+        </header>
+
+        <div class="sample">
+          <p class="sample-label">A · no tail assigned</p>
+          <div class="result-row result-row--united">
+            <div class="flight-id">United 1596</div>
+            <div class="schedule">8:30 a.m. — SFO to DEN<small>Nonstop · 2h 32m</small></div>
+            <div class="wo-readout" role="group"
+              aria-label="WiFi Odds: 68 percent next-gen odds; Streaming score 44">
+              <span class="wo-brand">WiFi Odds</span>
+              <span class="wo-divider" aria-hidden="true"></span>
+              <span class="wo-metric wo-metric--good"><strong>68%</strong><span>next-gen</span></span>
+              <span class="wo-divider" aria-hidden="true"></span>
+              <span class="wo-metric wo-metric--mixed"><strong>44</strong><span>streaming</span></span>
+            </div>
+          </div>
+
+          <p class="sample-label">B · tail assigned</p>
+          <div class="result-row result-row--united">
+            <div class="flight-id">United 1596</div>
+            <div class="schedule">8:30 a.m. — SFO to DEN<small>Nonstop · 2h 32m</small></div>
+            <div class="wo-readout" role="group"
+              aria-label="WiFi Odds: Next-gen WiFi, Starlink, tail assigned">
+              <span class="wo-brand">WiFi Odds</span>
+              <span class="wo-divider" aria-hidden="true"></span>
+              <span class="wo-assignment"><strong class="wo-tail-title">Next-gen WiFi</strong></span>
+              <span class="wo-divider" aria-hidden="true"></span>
+              <span class="wo-provider">Starlink</span>
+              <span class="wo-confirm"><b aria-hidden="true">✓</b><span>tail assigned</span></span>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <article class="host">
+        <header class="host-head">
+          <h2>Light Alaska-like result row</h2>
+          <p>Roomier 84px card · host font inherited · same visual system</p>
+        </header>
+
+        <div class="sample">
+          <p class="sample-label">A · no tail assigned</p>
+          <div class="result-row result-row--alaska">
+            <div class="flight-id">Alaska 7</div>
+            <div class="schedule">11:05 a.m. — SEA to SFO<small>Nonstop · 2h 18m</small></div>
+            <div class="wo-readout" role="group"
+              aria-label="WiFi Odds: 30 percent next-gen odds; Streaming score 55">
+              <span class="wo-brand">WiFi Odds</span>
+              <span class="wo-divider" aria-hidden="true"></span>
+              <span class="wo-metric wo-metric--long"><strong>30%</strong><span>next-gen</span></span>
+              <span class="wo-divider" aria-hidden="true"></span>
+              <span class="wo-metric wo-metric--mixed"><strong>55</strong><span>streaming</span></span>
+            </div>
+          </div>
+
+          <p class="sample-label">B · tail assigned</p>
+          <div class="result-row result-row--alaska">
+            <div class="flight-id">Alaska 7</div>
+            <div class="schedule">11:05 a.m. — SEA to SFO<small>Nonstop · 2h 18m</small></div>
+            <div class="wo-readout" role="group"
+              aria-label="WiFi Odds: Streaming WiFi, 2Ku, tail assigned">
+              <span class="wo-brand">WiFi Odds</span>
+              <span class="wo-divider" aria-hidden="true"></span>
+              <span class="wo-assignment"><strong class="wo-tail-title">Streaming WiFi</strong></span>
+              <span class="wo-divider" aria-hidden="true"></span>
+              <span class="wo-provider">2Ku</span>
+              <span class="wo-confirm"><b aria-hidden="true">✓</b><span>tail assigned</span></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="dark-proof">
+          <div class="dark-proof-copy">
+            <strong>Dark host chrome stress test</strong>
+            <span>Same WiFi Odds colors; stronger boundary and protected dark surface.</span>
+          </div>
+          <div class="wo-readout" role="group"
+            aria-label="WiFi Odds: Basic WiFi, Panasonic, tail assigned">
+            <span class="wo-brand">WiFi Odds</span>
+            <span class="wo-divider" aria-hidden="true"></span>
+            <span class="wo-assignment"><strong class="wo-tail-title">Basic WiFi</strong></span>
+            <span class="wo-divider" aria-hidden="true"></span>
+            <span class="wo-provider">Panasonic</span>
+            <span class="wo-confirm"><b aria-hidden="true">✓</b><span>tail assigned</span></span>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <section aria-labelledby="token-title">
+      <p class="eyebrow" id="token-title" style="margin-top:30px">Exact light-host tokens shown above</p>
+      <div class="tokens">
+        <div class="token" style="--swatch:#fbf8f2"><i></i><b>surface</b><code>#fbf8f2</code></div>
+        <div class="token" style="--swatch:#29241c"><i></i><b>ink</b><code>#29241c</code></div>
+        <div class="token" style="--swatch:#2d5a7d"><i></i><b>sky</b><code>#2d5a7d</code></div>
+        <div class="token" style="--swatch:#1e7a46"><i></i><b>good</b><code>#1e7a46</code></div>
+        <div class="token" style="--swatch:#975e00"><i></i><b>mixed</b><code>#975e00</code></div>
+        <div class="token" style="--swatch:#a84b2f"><i></i><b>long</b><code>#a84b2f</code></div>
+      </div>
+      <p class="note">
+        Overlay colors are exact WiFi Odds tokens. Host rows are intentionally neutral:
+        type, spacing, and row geometry provide the host fit without copying an airline brand.
+      </p>
+    </section>
+  </main>
+</body>
+</html>
