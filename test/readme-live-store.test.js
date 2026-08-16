@@ -65,6 +65,12 @@ function validateLiveDocs(text, label) {
       /the entire app/.test(text)) {
     fail(label, 'must not sell the retired encyclopedia as the live product');
   }
+  if (/ConnectScore/.test(text)) {
+    fail(label, 'must not name ConnectScore as a live customer metric');
+  }
+  if (label === 'README' && !/Streaming score/.test(text)) {
+    fail(label, 'must name Streaming score');
+  }
 }
 
 function validateStoreRecord(text) {
@@ -114,4 +120,11 @@ reject('store listing rewrite claim missing', function () {
   ));
 }, /not a rewrite/);
 
-process.stdout.write('readme-live-store: 2 PASS, 5 REJECT\n');
+reject('ConnectScore as live customer metric', function () {
+  validateLiveDocs(liveReadme.replace(
+    '**Streaming score**',
+    '**STREAMING / ConnectScore**'
+  ), 'README');
+}, /ConnectScore/);
+
+process.stdout.write('readme-live-store: 2 PASS, 6 REJECT\n');

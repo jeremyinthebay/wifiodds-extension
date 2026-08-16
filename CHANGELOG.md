@@ -18,6 +18,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Trip Guardian keeps unknown as unknown. Cannot confirm is still not no Starlink.
 - Manifest `homepage_url` now points at the live product URL https://wifiodds.com/ rather than the GitHub source repo. Live Store remains 3.0.2.
 - README.md and STORE.md now record live Store 3.0.2 and https://wifiodds.com/. They no longer describe the retired smithfamai.com/unitedstarlink encyclopedia as the live product. STORE.md is not a rewrite of the Chrome Web Store listing.
+- README no longer names ConnectScore as a live customer metric. The overlay prints STREAMING / Streaming score.
 
 ## [3.1.0] - 2026-08-12
 

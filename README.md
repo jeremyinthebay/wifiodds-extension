@@ -22,9 +22,9 @@ Keep them separate:
 - **Next-gen odds** are the chance of a Starlink or Amazon Leo aircraft. Live
   3.0.2 prints this per flight when the booking page supplies a United or Alaska
   flight number.
-- **STREAMING / ConnectScore** on live 3.0.2 is a 0-100 rating of WiFi quality
-  across an airline's published fleet today. It is airline-wide. It is not
-  per-flight next-gen odds.
+- **Streaming score** is a 0-100 rating of WiFi quality across an airline's
+  published fleet today. The overlay labels it STREAMING. It is airline-wide.
+  It is not per-flight next-gen odds.
 
 An unpublished next-gen count is unknown, not zero. This overlay does not claim
 Starlink on a given tail until a tracker confirmation says so.
