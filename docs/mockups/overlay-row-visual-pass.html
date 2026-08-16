@@ -1,0 +1,482 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WiFi Odds · booking-row visual pass</title>
+  <style>
+    :root {
+      color-scheme: light;
+
+      /* Chip plates from live wifiodds.com .odds / .odds.alt */
+      --wo-cyan: #29d8ff;
+      --wo-cyan-ink: #041318;
+      --wo-violet: #926cff;
+      --wo-violet-ink: #ffffff;
+      --wo-basic-fill: #f4eee2;
+      --wo-basic-ink: #29241c;
+      --wo-basic-line: #e3daca;
+
+      --wo-ground: #fbf8f2;
+      --wo-card: #ffffff;
+      --wo-ink: #29241c;
+      --wo-ink-soft: #443d32;
+      --wo-muted: #6e6557;
+      --wo-line: #e3daca;
+
+      --page-max: 1120px;
+      font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--wo-ground);
+      color: var(--wo-ink);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-width: 320px;
+      background: var(--wo-ground);
+      color: var(--wo-ink);
+    }
+
+    .page {
+      width: min(var(--page-max), calc(100% - 40px));
+      margin: 0 auto;
+      padding: 54px 0 72px;
+    }
+
+    .eyebrow {
+      margin: 0 0 10px;
+      color: #2d5a7d;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      max-width: 780px;
+      margin: 0;
+      font-size: clamp(34px, 5vw, 58px);
+      line-height: .98;
+      letter-spacing: -.055em;
+    }
+
+    .lede {
+      max-width: 720px;
+      margin: 18px 0 0;
+      color: var(--wo-muted);
+      font-size: 15px;
+      line-height: 1.55;
+    }
+
+    .scope {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      margin-top: 18px;
+      padding: 0 10px;
+      border: 1px solid var(--wo-line);
+      border-radius: 7px;
+      color: var(--wo-muted);
+      background: var(--wo-card);
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .board {
+      margin-top: 42px;
+      border: 1px solid var(--wo-line);
+      border-radius: 16px;
+      overflow: hidden;
+      background: var(--wo-card);
+    }
+
+    .host {
+      padding: 24px;
+      border-top: 1px solid var(--wo-line);
+    }
+
+    .host:first-child { border-top: 0; }
+
+    .host-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 18px;
+      margin-bottom: 12px;
+    }
+
+    .host-head h2 {
+      margin: 0;
+      font-size: 15px;
+      letter-spacing: -.02em;
+    }
+
+    .host-head p {
+      margin: 0;
+      color: var(--wo-muted);
+      font-size: 11px;
+      text-align: right;
+    }
+
+    .sample {
+      display: grid;
+      gap: 8px;
+    }
+
+    .sample-label {
+      margin: 0;
+      color: var(--wo-muted);
+      font-size: 10px;
+      font-weight: 750;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    .result-row {
+      display: grid;
+      grid-template-columns: minmax(110px, auto) minmax(190px, 1fr) auto;
+      align-items: center;
+      gap: 18px;
+      min-width: 0;
+      background: #ffffff;
+      color: #29241c;
+    }
+
+    .result-row + .sample-label { margin-top: 10px; }
+
+    .result-row--united {
+      min-height: 72px;
+      padding: 0 14px;
+      border-top: 1px solid var(--wo-line);
+      border-bottom: 1px solid var(--wo-line);
+      border-radius: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 14px;
+    }
+
+    .result-row--alaska {
+      min-height: 84px;
+      padding: 0 18px;
+      border: 1px solid var(--wo-line);
+      border-radius: 13px;
+      font-family: "Avenir Next", Avenir, "Segoe UI", sans-serif;
+      font-size: 14px;
+    }
+
+    .flight-id {
+      min-width: 0;
+      font-weight: 750;
+      letter-spacing: -.01em;
+      white-space: nowrap;
+    }
+
+    .schedule {
+      min-width: 0;
+      color: var(--wo-ink-soft);
+      font-size: 13px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .schedule small {
+      display: block;
+      margin-top: 4px;
+      color: var(--wo-muted);
+      font-size: 11px;
+    }
+
+    /* Proposed component. Static presentation only; no script or lookup. */
+    .wo-chip {
+      --chip-height: 30px;
+      --chip-radius: 8px;
+      --chip-size: 12.5px;
+      --chip-fill: var(--wo-cyan);
+      --chip-ink: var(--wo-cyan-ink);
+      position: relative;
+      display: inline-flex;
+      flex: 0 0 auto;
+      flex-wrap: nowrap;
+      align-items: center;
+      justify-self: end;
+      gap: 5px;
+      min-height: var(--chip-height);
+      max-width: 100%;
+      padding: 0 10px;
+      overflow: hidden;
+      border: 0;
+      border-radius: var(--chip-radius);
+      background: var(--chip-fill);
+      color: var(--chip-ink);
+      box-shadow: none;
+      font: inherit;
+      font-size: var(--chip-size);
+      font-weight: 780;
+      letter-spacing: -.01em;
+      line-height: 1;
+      white-space: nowrap;
+      vertical-align: middle;
+    }
+
+    .wo-chip--starlink {
+      --chip-fill: var(--wo-cyan);
+      --chip-ink: var(--wo-cyan-ink);
+    }
+
+    .wo-chip--starlink-violet {
+      --chip-fill: var(--wo-violet);
+      --chip-ink: var(--wo-violet-ink);
+    }
+
+    .wo-chip--odds {
+      --chip-fill: var(--wo-cyan);
+      --chip-ink: var(--wo-cyan-ink);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .wo-chip--streaming {
+      --chip-fill: var(--wo-violet);
+      --chip-ink: var(--wo-violet-ink);
+    }
+
+    .wo-chip--basic {
+      --chip-fill: var(--wo-basic-fill);
+      --chip-ink: var(--wo-basic-ink);
+      border: 1px solid var(--wo-basic-line);
+    }
+
+    .wo-starlink-mark {
+      flex: 0 0 auto;
+      display: block;
+      color: currentColor;
+    }
+
+    .wo-chip-copy {
+      flex: 0 0 auto;
+    }
+
+    .wo-chip-copy b {
+      font-weight: 800;
+    }
+
+    .wo-chip-copy span {
+      font-weight: 650;
+    }
+
+    .result-row--alaska .wo-chip {
+      --chip-height: 30px;
+      --chip-radius: 8px;
+      --chip-size: 12.5px;
+    }
+
+    .dark-proof {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 18px;
+      min-height: 64px;
+      margin-top: 18px;
+      padding: 14px 16px;
+      border-radius: 12px;
+      background: #050505;
+      color: #ffffff;
+    }
+
+    .dark-proof-copy strong {
+      display: block;
+      font-size: 13px;
+    }
+
+    .dark-proof-copy span {
+      display: block;
+      margin-top: 3px;
+      color: #a6a6ad;
+      font-size: 11px;
+    }
+
+
+    .dark-proof-chips {
+      display: inline-flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-self: end;
+      gap: 8px;
+    }
+    .dark-proof .wo-chip {
+      --chip-height: 28px;
+      --chip-radius: 7px;
+    }
+
+    .tokens {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 24px;
+    }
+
+    .token {
+      min-width: 0;
+      padding: 10px;
+      border: 1px solid var(--wo-line);
+      border-radius: 8px;
+      background: var(--wo-card);
+    }
+
+    .token i {
+      display: block;
+      width: 100%;
+      height: 4px;
+      margin-bottom: 8px;
+      border-radius: 2px;
+      background: var(--swatch);
+    }
+
+    .token b,
+    .token code {
+      display: block;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .token b { font-size: 11px; }
+    .token code { margin-top: 3px; color: var(--wo-muted); font-size: 10px; }
+
+    .note {
+      margin: 18px 0 0;
+      color: var(--wo-muted);
+      font-size: 11px;
+      line-height: 1.5;
+    }
+
+    @media (max-width: 760px) {
+      .page { width: min(100% - 24px, var(--page-max)); padding-top: 34px; }
+      .host { padding: 18px 12px; }
+      .host-head { align-items: flex-start; flex-direction: column; gap: 5px; }
+      .host-head p { text-align: left; }
+      .result-row { grid-template-columns: minmax(90px, auto) minmax(0, 1fr); gap: 10px; }
+      .schedule { display: none; }
+      .wo-chip { grid-column: 2; }
+      .dark-proof { grid-template-columns: 1fr; }
+      .dark-proof .wo-chip { justify-self: start; }
+      .tokens { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    }
+
+    @media (max-width: 430px) {
+      .result-row--united { padding: 0 8px; }
+      .result-row--alaska { padding: 0 10px; }
+      .tokens { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <p class="eyebrow">Design pass · 16 Aug 2026 · Starlink lock</p>
+    <h1>One filled chip. Starlink Confirmed when the tail is Starlink.</h1>
+    <p class="lede">
+      No tail yet: one compact odds chip. Assigned Starlink: exactly “Starlink Confirmed”
+      plus the dish mark on WifiOdds cyan or violet. Not paper. Not Starlink black.
+    </p>
+    <div class="scope">Static HTML/CSS · no lookup logic · no toggle · no Store change</div>
+
+    <section class="board" aria-label="Booking row mockups">
+      <article class="host">
+        <header class="host-head">
+          <h2>Light United-like result row</h2>
+          <p>Flat 72px row · host font inherited · 30px chip</p>
+        </header>
+
+        <div class="sample">
+          <p class="sample-label">A · no tail assigned</p>
+          <div class="result-row result-row--united">
+            <div class="flight-id">United 1596</div>
+            <div class="schedule">8:30 a.m. — SFO to DEN<small>Nonstop · 2h 32m</small></div>
+            <div class="wo-chip wo-chip--odds" role="group"
+              aria-label="WiFi Odds: 68 percent next-gen">
+              <span class="wo-chip-copy"><b>68%</b> <span>next-gen</span></span>
+            </div>
+          </div>
+
+          <p class="sample-label">B · assigned tail is Starlink</p>
+          <div class="result-row result-row--united">
+            <div class="flight-id">United 1596</div>
+            <div class="schedule">8:30 a.m. — SFO to DEN<small>Nonstop · 2h 32m</small></div>
+            <div class="wo-chip wo-chip--starlink" role="group"
+              aria-label="Starlink Confirmed">
+              <svg class="wo-starlink-mark" viewBox="0 0 16 16" width="13" height="13" aria-hidden="true" focusable="false"><path fill="currentColor" d="M13.55 1.72a1.35 1.35 0 0 0-1.9 0L10.4 2.97a1.35 1.35 0 0 0 0 1.9l.42.42-2.28 2.28A5.7 5.7 0 0 0 5.1 6.2a.85.85 0 1 0 .12 1.7 4 4 0 0 1 2.38 1.22L2.28 14.44a.9.9 0 1 0 1.28 1.28l5.32-5.32A4 4 0 0 1 10.1 11.8a.85.85 0 1 0 1.7.12 5.7 5.7 0 0 0-1.37-3.44l2.28-2.28.42.42a1.35 1.35 0 0 0 1.9 0l1.25-1.25a1.35 1.35 0 0 0 0-1.9z"/></svg>
+              <span class="wo-chip-copy">Starlink Confirmed</span>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <article class="host">
+        <header class="host-head">
+          <h2>Light Alaska-like result row</h2>
+          <p>Roomier 84px card · host font inherited · same visual system</p>
+        </header>
+
+        <div class="sample">
+          <p class="sample-label">A · no tail assigned</p>
+          <div class="result-row result-row--alaska">
+            <div class="flight-id">Alaska 7</div>
+            <div class="schedule">11:05 a.m. — SEA to SFO<small>Nonstop · 2h 18m</small></div>
+            <div class="wo-chip wo-chip--odds" role="group"
+              aria-label="WiFi Odds: 30 percent next-gen">
+              <span class="wo-chip-copy"><b>30%</b> <span>next-gen</span></span>
+            </div>
+          </div>
+
+          <p class="sample-label">C · assigned tail is Streaming (not Starlink)</p>
+          <div class="result-row result-row--alaska">
+            <div class="flight-id">Alaska 7</div>
+            <div class="schedule">11:05 a.m. — SEA to SFO<small>Nonstop · 2h 18m</small></div>
+            <div class="wo-chip wo-chip--streaming" role="group"
+              aria-label="Streaming">
+              <span class="wo-chip-copy">Streaming</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="dark-proof">
+          <div class="dark-proof-copy">
+            <strong>Dark host · same Starlink plates</strong>
+            <span>Default cyan #29d8ff / ink #041318. Allowed alternate violet #926cff / white.</span>
+          </div>
+          <div class="dark-proof-chips">
+            <div class="wo-chip wo-chip--starlink" role="group"
+              aria-label="Starlink Confirmed">
+              <svg class="wo-starlink-mark" viewBox="0 0 16 16" width="13" height="13" aria-hidden="true" focusable="false"><path fill="currentColor" d="M13.55 1.72a1.35 1.35 0 0 0-1.9 0L10.4 2.97a1.35 1.35 0 0 0 0 1.9l.42.42-2.28 2.28A5.7 5.7 0 0 0 5.1 6.2a.85.85 0 1 0 .12 1.7 4 4 0 0 1 2.38 1.22L2.28 14.44a.9.9 0 1 0 1.28 1.28l5.32-5.32A4 4 0 0 1 10.1 11.8a.85.85 0 1 0 1.7.12 5.7 5.7 0 0 0-1.37-3.44l2.28-2.28.42.42a1.35 1.35 0 0 0 1.9 0l1.25-1.25a1.35 1.35 0 0 0 0-1.9z"/></svg>
+              <span class="wo-chip-copy">Starlink Confirmed</span>
+            </div>
+            <div class="wo-chip wo-chip--starlink-violet" role="group"
+              aria-label="Starlink Confirmed">
+              <svg class="wo-starlink-mark" viewBox="0 0 16 16" width="13" height="13" aria-hidden="true" focusable="false"><path fill="currentColor" d="M13.55 1.72a1.35 1.35 0 0 0-1.9 0L10.4 2.97a1.35 1.35 0 0 0 0 1.9l.42.42-2.28 2.28A5.7 5.7 0 0 0 5.1 6.2a.85.85 0 1 0 .12 1.7 4 4 0 0 1 2.38 1.22L2.28 14.44a.9.9 0 1 0 1.28 1.28l5.32-5.32A4 4 0 0 1 10.1 11.8a.85.85 0 1 0 1.7.12 5.7 5.7 0 0 0-1.37-3.44l2.28-2.28.42.42a1.35 1.35 0 0 0 1.9 0l1.25-1.25a1.35 1.35 0 0 0 0-1.9z"/></svg>
+              <span class="wo-chip-copy">Starlink Confirmed</span>
+            </div>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <section aria-labelledby="token-title">
+      <p class="eyebrow" id="token-title" style="margin-top:30px">Locked chip plates</p>
+      <div class="tokens">
+        <div class="token" style="--swatch:#29d8ff"><i></i><b>cyan fill</b><code>#29d8ff</code></div>
+        <div class="token" style="--swatch:#041318"><i></i><b>cyan ink</b><code>#041318</code></div>
+        <div class="token" style="--swatch:#926cff"><i></i><b>violet fill</b><code>#926cff</code></div>
+        <div class="token" style="--swatch:#ffffff"><i></i><b>violet ink</b><code>#ffffff</code></div>
+        <div class="token" style="--swatch:#f4eee2"><i></i><b>basic fill</b><code>#f4eee2</code></div>
+        <div class="token" style="--swatch:#29241c"><i></i><b>basic ink</b><code>#29241c</code></div>
+      </div>
+      <p class="note">
+        Starlink Confirmed defaults to cyan/ink. Violet/white is the other allowed plate.
+        Chip fill is never paper #fbf8f2/#121216 and never Starlink black.
+        Copy is exactly “Starlink Confirmed” plus the currentColor dish mark.
+      </p>
+    </section>
+  </main>
+</body>
+</html>
