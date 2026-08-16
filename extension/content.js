@@ -812,6 +812,67 @@
     return out;
   }
 
+  /* Assigned-tail overlay: once a tail is published, the ROW shows the wifi
+   * TYPE, not fleet odds. Tracker deps come from search_starlink_flights, so a
+   * missing wifi/kind field is Starlink. Other assigned tails (wifi: streaming /
+   * basic / …) render the type word with no Starlink mark. Guard's newer
+   * contradictory fact still suppresses the assignment. */
+  function assignedTailActive(fn, hit) {
+    return !!(hit && hit.dep && fn && !guardContradicts(fn));
+  }
+  function assignedWifiType(hit) {
+    const raw = String((hit && hit.dep && (hit.dep.wifi || hit.dep.kind)) || "starlink")
+      .toLowerCase().trim();
+    if (/^(starlink|next-?gen|leo)$/.test(raw)) return "starlink";
+    if (/^streaming(-class)?$/.test(raw)) return "streaming";
+    if (raw === "basic") return "basic";
+    const safe = raw.replace(/[^a-z0-9-]+/g, "");
+    return safe || "starlink";
+  }
+  function starlinkMark() {
+    const ns = "http://www.w3.org/2000/svg";
+    const svg = document.createElementNS(ns, "svg");
+    svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("width", "14");
+    svg.setAttribute("height", "14");
+    svg.setAttribute("aria-hidden", "true");
+    svg.setAttribute("focusable", "false");
+    svg.classList.add("usl-starlink-mark");
+    const circle = document.createElementNS(ns, "circle");
+    circle.setAttribute("cx", "12");
+    circle.setAttribute("cy", "12");
+    circle.setAttribute("r", "9");
+    circle.setAttribute("fill", "none");
+    circle.setAttribute("stroke", "currentColor");
+    circle.setAttribute("stroke-width", "2");
+    const path = document.createElementNS(ns, "path");
+    path.setAttribute("d", "M7 12h10");
+    path.setAttribute("fill", "none");
+    path.setAttribute("stroke", "currentColor");
+    path.setAttribute("stroke-width", "2");
+    path.setAttribute("stroke-linecap", "round");
+    svg.appendChild(circle);
+    svg.appendChild(path);
+    return svg;
+  }
+  function typeChip(wifi, dep) {
+    const chip = document.createElement("span");
+    const starlink = wifi === "starlink";
+    chip.className = "usl-type-chip usl-type-chip--" + (starlink ? "starlink" : wifi);
+    if (starlink) chip.appendChild(starlinkMark());
+    const word = document.createElement("span");
+    word.className = "usl-type-chip__word";
+    word.textContent = starlink ? "Starlink Confirmed" : wifi;
+    chip.appendChild(word);
+    const tail = dep && dep.tail ? dep.tail : "";
+    const date = dep && dep.date ? dep.date : "";
+    chip.setAttribute("aria-label",
+      starlink
+        ? ("Starlink Confirmed" + (tail ? " tail " + tail : "") + (date ? " for " + date : ""))
+        : (wifi + (tail ? " tail " + tail : "") + (date ? " for " + date : "")));
+    return chip;
+  }
+
   /* Compute what the chip should say. Split from the write so the write can be
    * skipped when nothing changed — see gfChipFill(). */
   function gfChipState(key, fn, hit, op) {
@@ -825,21 +886,37 @@
       ? " · operated by " + op.name + " — scored on operating carrier" +
         (op.marketedAs ? " (marketed as " + op.marketedAs + ")" : "")
       : "";
+    if (assignedTailActive(fn, hit)) {
+      const wifi = assignedWifiType(hit);
+      const starlink = wifi === "starlink";
+      return {
+        sig: "assigned|" + wifi + "|" + fn + "|" + (hit.dep.tail || "") + opSig,
+        cn: "usl-gf-chip usl-type-chip usl-type-chip--" + (starlink ? "starlink" : wifi),
+        tx: starlink ? "Starlink Confirmed" : wifi,
+        starlinkMark: starlink,
+        ti: (fn ? fn + ": " : "") + (starlink
+          ? "Starlink Confirmed tail " + hit.dep.tail + " for " + hit.dep.date
+          : wifi + " WiFi on assigned tail " + (hit.dep.tail || "")) +
+          opNote + " · " + GF_CREDIT,
+        record: flightEvidenceRecord(fn, hit,
+          { k: "prob", value: typeof hit.prob === "number" ? hit.prob + "%" : "" },
+          metricEvidence("tracker", WIFI_AIRLINES[key])),
+      };
+    }
     if (hit && typeof hit.prob === "number") {
       // Tier 2: live per-flight odds replace the static score. LABELLED (Codex
       // round 26): an unlabelled "🛰 42" meant Streaming score here and per-flight
       // next-gen odds on united.com, with nothing on screen to tell them apart.
       return {
         sig: "live|" + fn + "|" + hit.prob + "|" + (hit.obs || 0) + "|" +
-          (hit.dep ? hit.dep.tail : "") + "|" + (hit.conf || "") + opSig,
+          (hit.conf || "") + opSig,
         cn: "usl-badge usl-gf-chip usl-gf-live " + cls(hit.prob),
-        tx: "NEXT-GEN " + hit.prob + "%" + (hit.dep ? " ✓" : ""),
+        tx: "NEXT-GEN " + hit.prob + "%",
         ti: fn + ": " +
           (hit.conf === "type"
             ? "~" + hit.prob + "% odds derived from aircraft type"
             : "gets a Starlink-equipped plane ~" + hit.prob + "% of the time (" +
               (hit.obs || 0) + " recent departures)") +
-          (hit.dep ? " — CONFIRMED Starlink tail " + hit.dep.tail : "") +
           " · data: " + (key === "alaska" ? "alaskastarlinktracker.com" : "unitedstarlinktracker.com") +
           opNote + " · " + GF_CREDIT,
         record: flightEvidenceRecord(fn, hit, { k: "prob", value: hit.prob + "%" },
@@ -886,7 +963,14 @@
     if (chip.dataset.gfSig === s.sig) return chip;
     chip.dataset.gfSig = s.sig;
     chip.className = s.cn;
-    chip.textContent = s.tx;
+    if (s.starlinkMark) {
+      const word = document.createElement("span");
+      word.className = "usl-type-chip__word";
+      word.textContent = s.tx;
+      chip.replaceChildren(starlinkMark(), word);
+    } else {
+      chip.textContent = s.tx;
+    }
     chip.title = s.ti;
     return typeof USLEvidence !== "undefined" ? USLEvidence.upgrade(chip, s.record) : chip;
   }
@@ -1214,6 +1298,25 @@
     grp.className = "usl-metrics" + (opts.compact ? " usl-metrics--compact" : "");
     if (fn) grp.dataset.b = fn;
     grp.dataset.ngState = st.k;
+
+    const assigned = assignedTailActive(fn, hit);
+    if (assigned) {
+      const wifi = assignedWifiType(hit);
+      grp.classList.add("usl-metrics--assigned");
+      grp.dataset.ngState = "assigned";
+      grp.dataset.wifiType = wifi;
+      grp.appendChild(typeChip(wifi, hit.dep));
+      const sentence = (fn ? fn + ": " : "") +
+        (wifi === "starlink"
+          ? "Starlink Confirmed tail " + hit.dep.tail + " for " + hit.dep.date
+          : wifi + " WiFi on assigned tail " + (hit.dep.tail || "") +
+            (hit.dep.date ? " for " + hit.dep.date : "")) +
+        ".";
+      grp.setAttribute("role", "group");
+      grp.setAttribute("aria-label", sentence);
+      grp.title = sentence;
+      return grp;
+    }
 
     const showNg = metricsMode !== "streaming";
     const showStream = metricsMode !== "nextgen";

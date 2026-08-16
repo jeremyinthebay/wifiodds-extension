@@ -130,16 +130,20 @@ function parseFlights(text) {
 
 function parseDeps(text) {
   if (!text) return [];
-  const re = /^([A-Z]{2}\d+)\s+([A-Z]{3})→([A-Z]{3})\s+dep\s+(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2})Z\s+\(tail\s+(N[A-Z0-9]+)\)/gm;
+  // Optional " · streaming|basic|…" after the tail is a test/runtime type hint.
+  // Live tracker lines omit it; those remain Starlink (search_starlink_flights).
+  const re = /^([A-Z]{2}\d+)\s+([A-Z]{3})→([A-Z]{3})\s+dep\s+(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2})Z\s+\(tail\s+(N[A-Z0-9]+)(?:\s*·\s*([A-Za-z][A-Za-z0-9-]*))?\)/gm;
   const out = [];
   let m;
   while ((m = re.exec(text)) !== null) {
-    out.push({
+    const dep = {
       fn: m[1],
       date: m[4],
       time: m[5],
       tail: m[6],
-    });
+    };
+    if (m[7]) dep.wifi = m[7].toLowerCase();
+    out.push(dep);
   }
   return out;
 }

@@ -711,6 +711,9 @@ function stripProbe() {
       aria: m.getAttribute("aria-label") || "",
       streamingValue: (m.querySelector(".usl-stream__value") || {}).textContent || "",
       confirm: !!m.querySelector(".usl-confirm"),
+      typeChip: (m.querySelector(".usl-type-chip__word") || {}).textContent || "",
+      starlinkMark: !!m.querySelector(".usl-starlink-mark"),
+      wifiType: m.dataset.wifiType || "",
       rampOnValue: !!m.querySelector(".usl-ng__value.usl-badge"),
       nextEvidence: (() => { const e = m.querySelector(".usl-ng"); return e ? {
         tier: e.dataset.evidenceTier || "", source: e.dataset.evidenceSource || "",
@@ -1299,10 +1302,10 @@ const CASES = [
     },
   },
   {
-    // v2.3 (a): CONFIDENCE ON THE BADGE. A near date (so confirmed tails are
-    // relevant) plus a confirmed-departure fixture for UA1596. The badge must
-    // carry the sample size the tracker returned (obs 51 → "· 51 flights") AND
-    // the confirmed-tail ✓ together, and the panel row must echo the sample size.
+    // Assigned Starlink tail: the ROW shows wifi type, not fleet odds.
+    // UA1596 has a published tail → Starlink SVG + exactly "Starlink Confirmed".
+    // UA1214 has no tail yet → NEXT-GEN % + STREAMING score may remain.
+    // The panel still carries sample size / dated confirmation; the row does not.
     name: "united-confirmed-tail-sample-size",
     o: "SFO", d: "DEN", dateOffsetDays: 1,
     rows: [{ num: 1596, time: "8:30 a.m." }, { num: 1214, time: "11:05 a.m." }],
@@ -1316,24 +1319,56 @@ const CASES = [
       deps: [{ fn: "UA1596", o: "SFO", d: "DEN", date: isoDaysFromNow(1), time: "09:00", tail: "N127UA" }],
       itins: [],
     },
-    awaitBadge: /68%/,
+    awaitPanel: /68%/,
     expect: (txt, badges, strip) => {
-      // v3.0 labelled dual-metric group (Codex round 26 replaced the unlabelled
-      // three-layer badge): the odds VALUE is labelled NEXT-GEN, the evidence
-      // count sits outside it, and a confirmed tail is a SEPARATE dated token —
-      // never a sample count or a ✓ folded into the coloured value.
-      const g = ((strip && strip.metrics) || []).find((x) => /68%/.test(x.text)) || {};
+      const assigned = ((strip && strip.metrics) || []).find((x) => x.state === "assigned") || {};
+      const odds = ((strip && strip.metrics) || []).find((x) => /30%/.test(x.text)) || {};
+      const assignedText = assigned.text || "";
       return {
-        valueLabelledNextGen: /NEXT-GEN 68%/.test(g.text || ""),
-        evidenceOutsideValue: /68% 51 tracked/.test(g.text || ""),
-        streamingSecondary: /STREAMING 44 Streaming score/.test(g.text || ""),
-        rampOnRealProbability: g.rampOnValue === true,
-        confirmTokenSeparate: g.confirm === true,
-        fullAccessibleSentence: /68% historical per-flight next-gen odds from 51 tracked departures\. High confidence\. Evidence: REPORTED · unitedstarlinktracker\.com · source date not provided\. Streaming score 44 out of 100 across this airline's fleet\. Evidence: MODELLED · wifiodds\.com frozen fleet-source ledger · 2026-07/.test(g.aria || ""),
-        accessibleCarriesExactDate: /Confirmed Starlink tail N127UA for \d{4}-\d{2}-\d{2}/.test(g.aria || ""),
+        assignedShowsStarlinkConfirmed: assigned.typeChip === "Starlink Confirmed",
+        assignedExactCopy: assignedText === "Starlink Confirmed",
+        assignedHasStarlinkMark: assigned.starlinkMark === true,
+        assignedNotDesignCopy: !/Next-gen WiFi/.test(assignedText) &&
+          !/✓ tail assigned/.test(assignedText),
+        assignedNoFleetOdds: !/NEXT-GEN/.test(assignedText) && !/\d+%/.test(assignedText),
+        assignedNoStreamingPill: !/STREAMING/.test(assignedText) && !assigned.streamingValue,
+        assignedNoSecondConfirmToken: assigned.confirm === false,
+        accessibleCarriesExactDate: /Starlink Confirmed tail N127UA for \d{4}-\d{2}-\d{2}/.test(assigned.aria || ""),
+        noTailKeepsOddsChip: /NEXT-GEN 30%/.test(odds.text || "") &&
+          /STREAMING 44 Streaming score/.test(odds.text || ""),
         panelRowShowsSampleSize: /51 flights/.test(txt),
         stripConfirmSeparateFact: /✓ Confirmed for \d{4}-\d{2}-\d{2}/.test(txt),
         confirmNeverFreshness: !/Updated|updated|fresh|today/.test(txt),
+      };
+    },
+  },
+  {
+    // Non-Starlink assigned tail: type word only, no Starlink mark, no odds.
+    name: "united-assigned-non-starlink-type",
+    o: "SFO", d: "DEN", dateOffsetDays: 1,
+    rows: [{ num: 2000, time: "8:30 a.m." }, { num: 2001, time: "11:05 a.m." }],
+    mock: {
+      o: "SFO", d: "DEN",
+      route: [
+        { fn: "UA2000", prob: 22, obs: 18, conf: "medium" },
+        { fn: "UA2001", prob: 41, obs: 30, conf: "high" },
+      ],
+      predict: { "UA2000": 0.22, "UA2001": 0.41 },
+      deps: [{ fn: "UA2000", o: "SFO", d: "DEN", date: isoDaysFromNow(1), time: "09:00",
+        tail: "N200UA", wifi: "streaming" }],
+      itins: [],
+    },
+    awaitPanel: /41%/,
+    expect: (txt, badges, strip) => {
+      const assigned = ((strip && strip.metrics) || []).find((x) => x.state === "assigned") || {};
+      const odds = ((strip && strip.metrics) || []).find((x) => /41%/.test(x.text)) || {};
+      return {
+        typeWordOnly: assigned.typeChip === "streaming" && assigned.wifiType === "streaming",
+        noStarlinkMark: assigned.starlinkMark === false,
+        noStarlinkCopy: !/Starlink/i.test(assigned.text || ""),
+        noFleetOddsOnAssigned: !/NEXT-GEN/.test(assigned.text || "") && !/\d+%/.test(assigned.text || ""),
+        noStreamingScorePill: !/STREAMING/.test(assigned.text || ""),
+        noTailKeepsOdds: /NEXT-GEN 41%/.test(odds.text || ""),
       };
     },
   },
@@ -2088,7 +2123,7 @@ const CASES = [
         ["rowEvidence", ".usl-metrics .usl-ng__sub", T],
         ["rowStreamLabel", ".usl-metrics .usl-stream__label", T],
         ["rowStreamValue", ".usl-metrics .usl-stream__value", T],
-        ["pageConfirm", ".usl-confirm", T],
+        ["pageConfirm", ".usl-type-chip--starlink", T],
       ];
       for (const [k, sel, min] of targets) {
         const v = await pixelContrast(page, sel);
@@ -2181,35 +2216,42 @@ const CASES = [
       await page.setViewportSize({ width: 601, height: 800 });
       await page.waitForTimeout(300);
       const probe601 = () => page.evaluate(() => {
-        const g = document.querySelector(".usl-metrics");
+        const g = document.querySelector(".usl-metrics:not(.usl-metrics--assigned)");
+        const assigned = document.querySelector(".usl-metrics--assigned");
+        const cs = (el) => el ? getComputedStyle(el).display : null;
+        const word = assigned && assigned.querySelector(".usl-type-chip__word");
         return {
-          ev: getComputedStyle(g.querySelector(".usl-ng__sub")).display,
-          cw: getComputedStyle(document.querySelector(".usl-confirm-w")).display,
-          ngLabel: getComputedStyle(g.querySelector(".usl-ng__label")).display,
-          stLabel: getComputedStyle(g.querySelector(".usl-stream__label")).display,
-          stWord: getComputedStyle(g.querySelector(".usl-stream__word")).display,
-          aria: g.getAttribute("aria-label") || "",
+          ev: cs(g && g.querySelector(".usl-ng__sub")),
+          ngLabel: cs(g && g.querySelector(".usl-ng__label")),
+          stLabel: cs(g && g.querySelector(".usl-stream__label")),
+          stWord: cs(g && g.querySelector(".usl-stream__word")),
+          aria: g ? (g.getAttribute("aria-label") || "") : "",
+          assignedWord: word ? word.textContent : "",
+          assignedWordDisplay: cs(word),
+          assignedAria: assigned ? (assigned.getAttribute("aria-label") || "") : "",
         };
       });
       const at601 = await probe601();
       const s601 = join(SHOTS, "row-metrics-601.png");
-      await (await page.$(".usl-metrics")).screenshot({ path: s601 });
+      await (await page.$(".usl-metrics--assigned, .usl-metrics")).screenshot({ path: s601 });
       await page.setViewportSize({ width: 600, height: 800 });
       await page.waitForTimeout(300);
       const at600 = await probe601();
       const s600 = join(SHOTS, "row-metrics-600.png");
-      await (await page.$(".usl-metrics")).screenshot({ path: s600 });
+      await (await page.$(".usl-metrics--assigned, .usl-metrics")).screenshot({ path: s600 });
       checks.evidenceVisible601 = at601.ev !== "none";
-      checks.confirmWordVisible601 = at601.cw !== "none";
+      checks.assignedWordVisible601 = at601.assignedWord === "Starlink Confirmed" &&
+        at601.assignedWordDisplay !== "none";
       checks.evidenceHidden600 = at600.ev === "none";
-      checks.confirmShortened600 = at600.cw === "none";
-      // METRIC IDENTITY IS NEVER HIDDEN at any width — that is the whole point
-      // of the labelled group, so both labels must survive the breakpoint.
+      checks.assignedWordVisible600 = at600.assignedWord === "Starlink Confirmed" &&
+        at600.assignedWordDisplay !== "none";
+      // METRIC IDENTITY IS NEVER HIDDEN at any width on the no-tail row.
       checks.labelsSurvive601 = at601.ngLabel !== "none" && at601.stLabel !== "none";
       checks.labelsSurvive600 = at600.ngLabel !== "none" && at600.stLabel !== "none";
       checks.connectScoreWordHidden600 = at600.stWord === "none";
       checks.fullAccessibleNameSurvives600 =
-        /51 tracked departures/.test(at600.aria) && /Confirmed Starlink tail N127UA/.test(at600.aria);
+        /tracked departures/.test(at600.aria) &&
+        /Starlink Confirmed tail N127UA/.test(at600.assignedAria);
       checks.breakpointShotsWritten = existsSync(s600) && statSync(s600).size > 200 &&
         existsSync(s601) && statSync(s601).size > 200;
 
@@ -2484,7 +2526,6 @@ const CASES = [
         { fn: "UA1214", prob: 30, obs: 40, conf: "medium" },
       ],
       predict: {},
-      deps: [{ fn: "UA1596", o: "SFO", d: "DEN", date: isoDaysFromNow(1), time: "09:00", tail: "N127UA" }],
       itins: [],
     },
     awaitPanel: /68%/,
@@ -2511,7 +2552,7 @@ const CASES = [
         sourcesRemainSeparate: !!g.nextEvidence && !!g.streamEvidence &&
           g.nextEvidence.source !== g.streamEvidence.source &&
           !/unitedstarlinktracker/.test(g.streamEvidence.title),
-        confirmStillSeparate: g.confirm === true,
+        confirmAbsentWithoutTail: g.confirm === false && g.state === "prob",
       };
     },
   },
@@ -3231,7 +3272,8 @@ function depsText(mock) {
   const deps = mock.deps || [];
   if (!deps.length) return ""; // no confirmed departures
   return deps.map((x) =>
-    `${x.fn} ${x.o}→${x.d} dep ${x.date} ${x.time}Z (tail ${x.tail})`).join("\n");
+    `${x.fn} ${x.o}→${x.d} dep ${x.date} ${x.time}Z (tail ${x.tail}` +
+    (x.wifi ? " · " + x.wifi : "") + ")").join("\n");
 }
 
 async function fulfillTracker(route) {

@@ -523,6 +523,26 @@ span.usl-watching:focus-visible{
 .usl-stream__word{font-size:10.5px;color:#6b7280;font-weight:600}
 .usl-metrics .usl-confirm{margin-top:2px}
 
+/* Assigned-tail type chip. Replaces NEXT-GEN % + STREAMING score once a tail
+ * is published. Starlink uses the site odds fills (#29d8ff on #041318 ink, or
+ * the #926cff / white alternate). Other types are the type word only — no
+ * Starlink mark, no second ConnectScore/Streaming pill. */
+.usl-type-chip{
+  display:inline-flex;align-items:center;gap:5px;vertical-align:middle;
+  border-radius:999px;padding:2px 9px 2px 7px;white-space:nowrap;
+  font-size:12px;font-weight:800;line-height:16px;letter-spacing:.01em;
+}
+.usl-type-chip--starlink{background:#29d8ff;color:#041318}
+.usl-type-chip--starlink.usl-type-chip--alt{background:#926cff;color:#fff}
+.usl-starlink-mark{display:block;flex:none;width:14px;height:14px}
+.usl-type-chip:not(.usl-type-chip--starlink){
+  background:transparent;color:#14181f;border:1px solid #98a2b3;font-weight:700;
+  padding:2px 9px;
+}
+.usl-metrics--assigned{flex-direction:row;align-items:center;gap:0}
+.usl-gf-chip.usl-type-chip{margin-left:6px;flex:0 0 auto}
+
+
 /* ≤600px — drop the evidence words and the "Streaming score" word. The LABELS
  * stay: an unlabelled percentage is the exact defect this group replaced. */
 @media (max-width:600px){
