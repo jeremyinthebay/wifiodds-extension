@@ -440,6 +440,13 @@ const MUTATIONS = {
     expect: "popup-no-route-search",
     note: "leftover popup airline/FROM/TO/Go route search returns",
   },
+  "popup-autowatch-disabled": {
+    file: "popup.js",
+    from: "        if (!tabDate) return;",
+    to: "        if (tabDate) return;",
+    expect: "popup-autowatch-opens",
+    note: "auto-watch stops registering the tab's own confirmed departure, demoting the user back to the manual UA1812 + date form",
+  },
 };
 const MUT = process.env.E2E_MUT || (process.env.E2E_NEG ? "bug3-loading" : "");
 const NEG = !!MUT;
@@ -891,6 +898,94 @@ const CASES = [
         connectScorePresent: out.cs === true,
         settingsPresent: out.settings === true,
         guardedTripsPresent: out.trips === true && out.watch === true,
+      } };
+    },
+  },
+  {
+    // Owner lock, 16 Aug 2026: the watch has to OPEN BY ITSELF for a confirmed
+    // or tail-assigned flight on the page the user already has open. Typing
+    // UA1812 + a date stays available, but behind a disclosure — it is the
+    // fallback, not the path. The route is read from the tab, never entered,
+    // so this is not the FROM/TO/Go search PR 5 removed (asserted below).
+    name: "popup-autowatch-opens",
+    o: "SFO", d: "DEN", rows: [], mock: {},
+    driver: async ({ page, extId }) => {
+      if (!extId) return { appeared: false, panelText: "(no extension id)", badges: [], checks: { extIdPresent: false } };
+      await page.goto("chrome-extension://" + extId + "/popup.html", { waitUntil: "domcontentloaded" });
+      // The manual form is deliberately inside a collapsed <details>, so wait on
+      // the disclosure itself — #usl-watch-form is attached but not visible.
+      await page.waitForSelector("#usl-watch-manual", { timeout: 15000 });
+      const onTab = isoDaysFromNow(2);
+      const offTab = isoDaysFromNow(3);
+      const out = await page.evaluate(({ onTab, offTab }) => {
+        // Stand in for the service worker: routeData serves four tail-assigned
+        // departures on the tab's route — THREE on the tab's own date (one more
+        // than AUTO_ADD_MAX, so the registration cap has to truncate) and one
+        // on a different date (never the user's flight, so never auto-added).
+        const sent = [];
+        const trips = [];
+        chrome.runtime.sendMessage = function (msg, cb) {
+          sent.push(msg);
+          if (msg.type === "routeData") return void cb({ ok: true, airline: "UA", deps: [
+            { fn: "UA1812", date: onTab, time: "16:20", tail: "N127UA" },
+            { fn: "UA0555", date: onTab, time: "18:45", tail: "N129UA" },
+            { fn: "UA0777", date: onTab, time: "21:10", tail: "N130UA" },
+            { fn: "UA2402", date: offTab, time: "09:05", tail: "N131UA" },
+          ] });
+          if (msg.type === "tripList") return void cb({ ok: true, trips: trips.slice() });
+          if (msg.type === "tripAdd") {
+            trips.push({ fn: msg.fn, date: msg.date, route: "SFO-DEN", lastStatus: "unconfirmed",
+              tail: "N127UA", prob: null, history: [], outcome: null });
+            return void cb({ ok: true, trips: trips.slice() });
+          }
+          return void cb({ ok: true });
+        };
+        // What init() would have set from a real united.com tab.
+        tabRoute = { o: "SFO", d: "DEN" };
+        tabDate = onTab;
+        autoWatch();
+        const rows = [...document.querySelectorAll("#usl-autowatch .usl-aw-row")];
+        const manual = document.getElementById("usl-watch-manual");
+        return {
+          text: document.body.innerText || "",
+          hidden: document.getElementById("usl-autowatch").hidden,
+          rowCount: rows.length,
+          rowText: rows.map((r) => r.innerText).join(" ~ "),
+          adds: sent.filter((m) => m.type === "tripAdd").map((m) => m.fn + "|" + m.date + "|" + (m.source || "")),
+          watchButtons: [...document.querySelectorAll("#usl-autowatch .usl-aw-btn")].map((b) => b.title),
+          watchingLabels: document.querySelectorAll("#usl-autowatch .usl-aw-on").length,
+          manualExists: !!manual,
+          manualOpen: !!(manual && manual.open),
+          tripRows: document.querySelectorAll("#usl-trips .usl-trip-row").length,
+          from: !!document.getElementById("usl-from"),
+          to: !!document.getElementById("usl-to"),
+          go: !!document.getElementById("usl-go"),
+        };
+      }, { onTab, offTab });
+      const addList = out.adds.join(" ");
+      const buttons = out.watchButtons.join(" ");
+      return { appeared: true, panelText: out.text, badges: [], probe: out, checks: {
+        autoWatchShown: out.hidden === false && out.rowCount === 4,
+        // The tab's own confirmed departures register with no user action.
+        autoRegisteredTabDate: out.adds.length === 2 &&
+          out.adds[0] === "UA1812|" + onTab + "|autowatch" &&
+          out.adds[1] === "UA0555|" + onTab + "|autowatch",
+        // AUTO_ADD_MAX truncates: a third same-date dep is NOT auto-registered,
+        // so a browsed route can never consume the background's MAX_TRIPS budget.
+        autoAddCapped: out.adds.length === 2 && addList.indexOf("UA0777") === -1,
+        // A dep on some OTHER date is not the user's flight — never auto-added.
+        // Length is asserted too: with zero adds this would pass vacuously.
+        noAutoAddOffTabDate: out.adds.length === 2 && addList.indexOf("UA2402") === -1,
+        // Everything not auto-registered stays reachable without typing.
+        offDateStaysOneTap: out.watchButtons.length === 2 &&
+          /UA0777/.test(buttons) && /UA2402/.test(buttons),
+        registeredRowReadsWatching: out.watchingLabels === 2 &&
+          /UA1812/.test(out.rowText) && /UA0555/.test(out.rowText),
+        tailShownForEveryDep: /N127UA/.test(out.rowText) && /N129UA/.test(out.rowText) &&
+          /N130UA/.test(out.rowText) && /N131UA/.test(out.rowText),
+        watchOpenedInTrips: out.tripRows === 2,
+        manualFormDemoted: out.manualExists === true && out.manualOpen === false,
+        routeSearchStillGone: out.from === false && out.to === false && out.go === false,
       } };
     },
   },

@@ -10,6 +10,7 @@ var currentAirline = "UA";
 
 var activeTab = null;      // active browser tab, on any page
 var tabRoute = null;       // {o,d} parsed from that tab
+var tabDate = null;        // YYYY-MM-DD the tab is showing, when the page says so
 var pageFlights = {};      // fn -> times string, as found on the page
 var lastData = null, lastO = null, lastD = null;
 
@@ -191,6 +192,12 @@ function renderNote(note) {
   return wrap;
 }
 
+// A date is only usable if the page really gave us one in ISO form. Anything
+// else stays null — auto-watch must never guess a date on the user's behalf.
+function dateParam(v) {
+  return typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null;
+}
+
 // Route + airline from the active tab's URL. united.com and alaskaair.com both
 // carry the O/D pair in the query string (under different param names).
 function parseTabUrl(url) {
@@ -201,7 +208,10 @@ function parseTabUrl(url) {
     if (/(^|\.)united\.com$/.test(u.hostname)) {
       o = params.get("f") || params.get("origin") || params.get("Origin");
       d = params.get("t") || params.get("destination") || params.get("Destination");
-      if (o && d) return { o: o.toUpperCase(), d: d.toUpperCase(), airline: "UA" };
+      // united.com carries the departure date in "d" — a different param from
+      // the "t"/destination above, so there is no collision with this object's
+      // own d (destination) key.
+      if (o && d) return { o: o.toUpperCase(), d: d.toUpperCase(), date: dateParam(params.get("d")), airline: "UA" };
       return null;
     }
     if (/(^|\.)alaskaair\.com$/.test(u.hostname)) {
@@ -233,6 +243,10 @@ function init() {
       if (pc && pc.airline) setAirline(pc.airline);
       if (pc && pc.o && pc.d) tabRoute = { o: pc.o, d: pc.d };
       else if (urlRoute && urlRoute.o && urlRoute.d) tabRoute = { o: urlRoute.o, d: urlRoute.d };
+      // The content script knows the leg actually on screen (round trips show
+      // RETURN while the URL still says outbound), so prefer its date.
+      tabDate = dateParam(pc && pc.date) || (urlRoute && urlRoute.date) || null;
+      autoWatch();
     });
   });
 }
@@ -741,6 +755,109 @@ function loadTrips() {
     void chrome.runtime.lastError;
     if (res && res.trips) renderTrips(res.trips);
   });
+}
+
+/* ── Auto-watch (owner lock, 16 Aug 2026) ──────────────────────────────────
+ * A watch has to OPEN BY ITSELF once the user has a confirmed or tail-assigned
+ * flight. Typing UA1812 + a date is the fallback, not the path.
+ *
+ * The signal is the booking tab the user already opened: init() gives the route
+ * and the leg's date, and the background's routeData carries `deps` — the
+ * departures the tracker has published an actual TAIL for (next ~72h). That is
+ * precisely "confirmed or tail-assigned". A dep matching the tab's route AND
+ * date is the flight the user is looking at, so it is registered on its own;
+ * tripAdd then runs an immediate check and the existing 180-minute uslTripCheck
+ * alarm keeps Starlink status current from there. Remaining tail-assigned deps
+ * on the route get a one-tap Watch — still no typing.
+ *
+ * This is NOT the FROM/TO/Go search PR 5 removed: no route input, no submit,
+ * no user-typed airports. The route is read from the tab, never entered.
+ */
+var autoWatchEl = document.getElementById("usl-autowatch");
+// Registering is bounded per popup open so a browsed route can never eat the
+// background's MAX_TRIPS budget. Duplicates are already a no-op in tripAdd.
+var AUTO_ADD_MAX = 2;
+
+function isWatched(trips, dep) {
+  return trips.some(function (t) { return t.fn === dep.fn && t.date === dep.date; });
+}
+
+// deps carry a tail by construction (bg parseDeps only emits matches with one),
+// but re-assert it here: a tail is the whole reason this counts as auto-watchable.
+function watchableDeps(deps) {
+  var today = new Date().toISOString().slice(0, 10);
+  return (deps || []).filter(function (d) {
+    return d && /^(?:UA|AS)\d{1,4}$/.test(d.fn || "") &&
+      /^\d{4}-\d{2}-\d{2}$/.test(d.date || "") && d.date >= today && !!d.tail;
+  });
+}
+
+function autoWatchRow(dep, watched) {
+  var row = el("div", "usl-aw-row");
+  row.appendChild(el("span", "usl-aw-fn", dep.fn + " · " + dep.date + " " + dep.time + "Z · tail " + dep.tail));
+  if (watched) {
+    row.appendChild(el("span", "usl-aw-on", "watching"));
+    return row;
+  }
+  var btn = el("button", "usl-aw-btn", "Watch");
+  btn.type = "button";
+  btn.title = "Watch " + dep.fn + " on " + dep.date;
+  btn.addEventListener("click", function () {
+    btn.disabled = true;
+    addWatch(dep.fn, dep.date, function () { btn.disabled = false; });
+  });
+  row.appendChild(btn);
+  return row;
+}
+
+// Single registration path for both the automatic and the one-tap cases, so
+// the service worker's rules (past date, MAX_TRIPS) surface identically.
+function addWatch(fn, date, done) {
+  chrome.runtime.sendMessage({ type: "tripAdd", fn: fn, date: date, source: "autowatch" }, function (res) {
+    void chrome.runtime.lastError;
+    if (res && res.ok === false && res.error) watchStatus.textContent = res.error;
+    if (res && res.trips) { renderTrips(res.trips); autoWatchRender(res.trips); }
+    if (done) done();
+  });
+}
+
+var autoWatchDeps = [];
+
+function autoWatchRender(trips) {
+  if (!autoWatchEl) return;
+  autoWatchEl.innerHTML = "";
+  if (!autoWatchDeps.length) { autoWatchEl.hidden = true; return; }
+  autoWatchEl.hidden = false;
+  autoWatchEl.appendChild(el("div", "usl-aw-label", "Confirmed departures on this page (next ~72h)"));
+  autoWatchDeps.forEach(function (d) {
+    autoWatchEl.appendChild(autoWatchRow(d, isWatched(trips || [], d)));
+  });
+}
+
+function autoWatch() {
+  if (!autoWatchEl) return;
+  if (!tabRoute || !tabRoute.o || !tabRoute.d) { autoWatchEl.hidden = true; return; }
+  chrome.runtime.sendMessage(
+    { type: "routeData", o: tabRoute.o, d: tabRoute.d, airline: airline() },
+    function (res) {
+      void chrome.runtime.lastError;
+      autoWatchDeps = watchableDeps(res && res.deps);
+      if (!autoWatchDeps.length) { autoWatchEl.hidden = true; return; }
+      chrome.runtime.sendMessage({ type: "tripList" }, function (lr) {
+        void chrome.runtime.lastError;
+        var trips = (lr && lr.trips) || [];
+        autoWatchRender(trips);
+        // Only the tab's own date registers itself. Without a date from the
+        // page there is no flight the user demonstrably has, so everything
+        // stays one-tap rather than guessing.
+        if (!tabDate) return;
+        autoWatchDeps
+          .filter(function (d) { return d.date === tabDate && !isWatched(trips, d); })
+          .slice(0, AUTO_ADD_MAX)
+          .forEach(function (d) { addWatch(d.fn, d.date, null); });
+      });
+    }
+  );
 }
 watchForm.addEventListener("submit", function (e) {
   e.preventDefault();

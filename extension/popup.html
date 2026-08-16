@@ -196,6 +196,24 @@
   }
   .usl-empty a { color: var(--sky); }
 
+  /* Auto-watch: tail-assigned departures found on the page the user already
+     opened. Registration happens on its own; the row is a receipt, plus a
+     one-tap Watch for the dates that did not self-register. */
+  .usl-autowatch{margin-bottom:8px}
+  .usl-aw-label{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);margin-bottom:4px}
+  .usl-aw-row{display:flex;align-items:center;justify-content:space-between;gap:8px;background:var(--card-bg);border:1px solid var(--card-edge);border-radius:8px;padding:6px 9px;margin-bottom:4px}
+  .usl-aw-fn{font-family:var(--mono);font-size:11.5px;color:var(--green)}
+  .usl-aw-on{font-family:var(--mono);font-size:10px;color:var(--dim);white-space:nowrap}
+  .usl-aw-btn{font-family:var(--mono);font-size:10px;font-weight:700;color:var(--sky);background:#11131a;border:1px solid var(--card-edge);border-radius:8px;padding:4px 9px;cursor:pointer;white-space:nowrap}
+  .usl-aw-btn:hover,.usl-aw-btn:focus-visible{border-color:var(--sky);outline:none}
+  .usl-aw-btn:disabled{opacity:.6;cursor:default}
+  .usl-watch-manual{margin-top:2px}
+  .usl-watch-manual-s{font-family:var(--mono);font-size:10.5px;color:var(--dim);cursor:pointer;list-style:none;padding:2px 0}
+  .usl-watch-manual-s::-webkit-details-marker{display:none}
+  .usl-watch-manual-s::before{content:"▸ ";color:var(--sky)}
+  .usl-watch-manual[open] .usl-watch-manual-s::before{content:"▾ "}
+  .usl-watch-manual-s:focus-visible{outline:none;color:var(--sky)}
+
   .usl-footer {
     font-family: var(--mono);
     font-size: 10px;
@@ -374,12 +392,16 @@
       <span>Guarded trips · booking-to-boarding tail watch</span>
       <button id="usl-check-now" class="usl-check-now" type="button">check now</button>
     </div>
+    <div id="usl-autowatch" class="usl-autowatch" hidden></div>
     <div id="usl-trips"></div>
-    <form id="usl-watch-form" class="usl-form" style="margin-bottom:0">
-      <input id="usl-watch-fn" class="usl-input" type="text" maxlength="6" placeholder="UA1812" title="Flight number — UA or AS, e.g. UA1812 or AS1" autocomplete="off" />
-      <input id="usl-watch-date" class="usl-input" type="date" style="font-size:11.5px;flex:1.5;text-transform:none;letter-spacing:0" />
-      <button class="usl-go" type="submit">Watch</button>
-    </form>
+    <details id="usl-watch-manual" class="usl-watch-manual">
+      <summary class="usl-watch-manual-s">Add a flight manually</summary>
+      <form id="usl-watch-form" class="usl-form" style="margin-bottom:0;margin-top:8px">
+        <input id="usl-watch-fn" class="usl-input" type="text" maxlength="6" placeholder="UA1812" title="Flight number — UA or AS, e.g. UA1812 or AS1" autocomplete="off" />
+        <input id="usl-watch-date" class="usl-input" type="date" style="font-size:11.5px;flex:1.5;text-transform:none;letter-spacing:0" />
+        <button class="usl-go" type="submit">Watch</button>
+      </form>
+    </details>
     <div id="usl-watch-status" class="usl-status" style="margin-top:4px"></div>
 
     <div class="usl-footer">Estimates from tail-assignment history — verify at T-48h.</div>
