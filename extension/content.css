@@ -254,6 +254,7 @@
 /* "best" is a ring only — the ramp band (usl-hi/mid/low/no) still sets the fill
    and text colour, so the best flight keeps its true likelihood colour. */
 .usl-badge.usl-best{box-shadow:0 0 0 2.5px rgba(41,216,255,.55),0 1px 4px rgba(16,24,40,.3)}
+.usl-gf-empty{margin:0;font-size:13px;line-height:1.45;opacity:.9}
 .usl-panel .usl-badge{font-size:12px;padding:2px 9px}
 
 /* v2.0 — Google Flights chips.

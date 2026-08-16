@@ -90,10 +90,21 @@
   // these — never because a periodic/DOM scan happens to be scheduled.
   let navanUnitedFns = new Set();
   let data = null, panelEl = null, scanScheduled = false;
-  // Page-local panel placement. Moving the overlay must never create a new
-  // stored preference: different booking sites put their controls in different
-  // places, so yesterday's coordinates are not a safe default for today's page.
+  // Panel placement is restored from chrome.storage.local only. Nothing about
+  // position leaves the device.
   let panelPlacement = null; // { mode:"left"|"right" } or { mode:"free", left, top }
+  const PANEL_PLACE_KEY = "uslPanelPlacement";
+  function readPanelPlacement(raw) {
+    if (!raw || typeof raw !== "object") return null;
+    if (raw.mode === "left" || raw.mode === "right") return { mode: raw.mode };
+    if (raw.mode === "free" && Number.isFinite(raw.left) && Number.isFinite(raw.top))
+      return { mode: "free", left: raw.left, top: raw.top };
+    return null;
+  }
+  function persistPanelPlacement() {
+    if (!panelPlacement) return;
+    try { chrome.storage.local.set({ uslPanelPlacement: panelPlacement }); } catch (e) {}
+  }
   let probMap = new Map();
   let registry = new Map();
   let prioritizeActive = false, desiredOrder = null, lastSortTs = 0;
@@ -177,14 +188,21 @@
       if (persist) try { chrome.storage.local.set({ uslCollapsed: collapsed }); } catch (e) {}
       requestAnimationFrame(() => applyPanelPlacement(p));
     };
-    try { chrome.storage.local.get("uslCollapsed", (v) => setCollapsed(!!v.uslCollapsed, false)); } catch (e) {}
+    try {
+      chrome.storage.local.get(["uslCollapsed", PANEL_PLACE_KEY], (v) => {
+        const placed = readPanelPlacement(v[PANEL_PLACE_KEY]);
+        if (placed) panelPlacement = placed;
+        setCollapsed(!!v.uslCollapsed, false);
+        applyPanelPlacement(p);
+      });
+    } catch (e) {}
     minimize.addEventListener("click", (ev) => { ev.stopPropagation(); setCollapsed(true, true); });
     open.addEventListener("click", (ev) => { ev.stopPropagation(); setCollapsed(false, true); });
     moveLeft.addEventListener("click", (ev) => {
-      ev.stopPropagation(); panelPlacement = { mode: "left" }; applyPanelPlacement(p);
+      ev.stopPropagation(); panelPlacement = { mode: "left" }; applyPanelPlacement(p); persistPanelPlacement();
     });
     moveRight.addEventListener("click", (ev) => {
-      ev.stopPropagation(); panelPlacement = { mode: "right" }; applyPanelPlacement(p);
+      ev.stopPropagation(); panelPlacement = { mode: "right" }; applyPanelPlacement(p); persistPanelPlacement();
     });
     header.addEventListener("pointerdown", (ev) => {
       if (p.classList.contains("usl-collapsed") || ev.button !== 0 || ev.target.closest("button,a")) return;
@@ -205,6 +223,8 @@
         header.removeEventListener("pointercancel", end);
         header.classList.remove("usl-dragging");
         try { header.releasePointerCapture(e.pointerId); } catch (err) {}
+        clampPanelToViewport(p);
+        persistPanelPlacement();
       };
       header.addEventListener("pointermove", move);
       header.addEventListener("pointerup", end);
@@ -213,7 +233,11 @@
     });
     applyPanelPlacement(p);
   }
-  addEventListener("resize", () => { if (panelEl && panelPlacement) applyPanelPlacement(panelEl); });
+  addEventListener("resize", () => {
+    if (!panelEl || !panelPlacement) return;
+    applyPanelPlacement(panelEl);
+    persistPanelPlacement();
+  });
   let watched = new Set(); // "UA1812|2026-07-25"
   // R23 cross-model precedence: the Guard's latest published fact for an EXACT
   // fn|date, read from the same trip store the popup renders. "no" (confirmed
@@ -329,7 +353,7 @@
   // activates the explicit "Prioritize United flights…" action, which persists
   // as uslPrioritize so a deliberate choice sticks across reloads (default off).
   try {
-    chrome.storage.local.get(["uslPrioritize", "uslSortSingle", "uslSortMixed", "uslMetrics", "uslSawAutoSortCue"], (v) => {
+    chrome.storage.local.get(["uslPrioritize", "uslSortSingle", "uslSortMixed", "uslMetrics", "uslSawAutoSortCue", PANEL_PLACE_KEY], (v) => {
       // Defaults apply only when the key is genuinely ABSENT, so a stored
       // `false` is never silently re-enabled on the next load. A fresh profile
       // and the rendered settings state must agree (gate assertion 1).
@@ -339,6 +363,8 @@
       // The legacy explicit action persists per-session on mixed hosts only.
       prioritizeActive = MIXED_HOST ? (!!v.uslPrioritize || sortMixed === "prioritize") : false;
       sawAutoSortCue = v.uslSawAutoSortCue === true;
+      const placed = readPanelPlacement(v[PANEL_PLACE_KEY]);
+      if (placed) panelPlacement = placed;
       settingsReady = true;
       scheduleScan();
       if (panelEl) renderPanel();
@@ -969,10 +995,19 @@
     renderGFPanel();
   }
 
+  function gfPanelHeader() {
+    return `<header><span class="usl-rt">🛰️ WiFi odds in these results</span><span class="usl-compact-title">🛰️ WiFi Odds</span>` +
+      `<span class="usl-rhs"><button type="button" class="usl-move-left" aria-label="Move panel to left" title="Move left">←</button>` +
+      `<button type="button" class="usl-move-right" aria-label="Move panel to right" title="Move right">→</button>` +
+      `<button type="button" class="usl-minimize" aria-expanded="true">Minimize</button>` +
+      `<button type="button" class="usl-open" aria-expanded="false">Open</button></span></header>`;
+  }
+
   /* GF panel: a per-airline summary of what is actually in these results,
    * ranked by Streaming score. Deliberately NOT the united.com route flight list —
    * on GF there is no single route/airline, and no sort button, because GF owns
-   * its own ordering and its list virtualizes. */
+   * its own ordering and its list virtualizes. A granted search with zero scored
+   * rows still draws a labels-only empty state instead of leaving the page blank. */
   function renderGFPanel() {
     if (!gfPathOk() || !gfScoring()) return;
     const ranked = [...gfPresent.keys()]
@@ -983,15 +1018,24 @@
     for (const [fn, v] of probMap.entries())
       if (v && typeof v.prob === "number") live.push(fn + ":" + v.prob);
     live.sort();
-    const sig = ranked.map((a) => a.key + a.score).join(",") + "|" + live.join(",");
+    const empty = !ranked.length;
+    const sig = (empty ? "empty" : ranked.map((a) => a.key + a.score).join(",")) + "|" + live.join(",");
     if (panelEl && panelEl.isConnected && sig === gfSig) return;
     gfSig = sig;
     if (panelEl) panelEl.remove();
     panelEl = null;
-    if (!ranked.length) return;
 
     const p = document.createElement("div");
     p.className = "usl-panel";
+    if (!ranked.length) {
+      p.innerHTML =
+        gfPanelHeader() +
+        `<div class="usl-body"><p class="usl-gf-empty" role="status">No scored flights in these results.</p></div>`;
+      document.documentElement.appendChild(p);
+      setupPanelControls(p);
+      panelEl = p;
+      return;
+    }
     const liveRows = ranked.filter((a) => a.instrumented).length;
     // Next-gen first (Jeremy, 31 Jul): section 1 ranks the airlines in these
     // results by NEXT-GEN ODDS (chance of a Starlink / Amazon Leo aircraft,
@@ -1004,11 +1048,7 @@
       return (bv - av) || a.name.localeCompare(b.name);
     });
     p.innerHTML =
-      `<header><span class="usl-rt">🛰️ WiFi odds in these results</span><span class="usl-compact-title">🛰️ WiFi Odds</span>` +
-      `<span class="usl-rhs"><button type="button" class="usl-move-left" aria-label="Move panel to left" title="Move left">←</button>` +
-      `<button type="button" class="usl-move-right" aria-label="Move panel to right" title="Move right">→</button>` +
-      `<button type="button" class="usl-minimize" aria-expanded="true">Minimize</button>` +
-      `<button type="button" class="usl-open" aria-expanded="false">Open</button></span></header>` +
+      gfPanelHeader() +
       `<div class="usl-body">` +
       `<p class="usl-sect">Next-gen odds · Starlink and Amazon Leo</p>` +
       byNextGen.map((a) => {
@@ -1331,10 +1371,12 @@
     }
     let registered = false;
     const navanWants = [];
-    // The on-page "best" ring binds to the SAME fail-closed winner eligibility as
-    // the panel/strip: rank the scored predictions and ask winnerFnOf(). A mere
-    // highest number that isn't decision-grade (gap <8pt, or low/type/missing
+    // The on-page winner ring binds to the SAME fail-closed winner eligibility
+    // as the panel/strip: rank the scored predictions and ask winnerFnOf(). A
+    // mere highest number that isn't decision-grade (gap <8pt, or low/type/missing
     // confidence) gets NO ring anywhere (Codex R23 "leaked best ring" control).
+    // United, Alaska, and Navan share this mark. Google Flights stays labels-only
+    // and never reaches this scanner.
     const rankedOnPage = [...probMap.entries()]
       .filter(([, v]) => v && typeof v.prob === "number")
       .map(([f, v]) => ({ fn: f, prob: v.prob }))
@@ -1367,9 +1409,12 @@
           // it. `hit === undefined` still means "never asked": no group yet.
           el.dataset.uslBadged = hit && hit.unavailable ? "unavail" : hit ? "1" : "na";
           const grp = metricsGroup(fn, hit, null);
-          // "best" is a RING modifier bound to the shared winner eligibility,
+          // Winner ring is a RING modifier bound to the shared winner eligibility,
           // applied to the probability pill only, and never a colour change.
-          if (fn === onPageWinnerFn && !PAGE_PREDICT) {
+          // Alaska and Navan use this same mark as United. Late scores re-sync
+          // below so a ring is not stuck on the first flight that happened to
+          // resolve.
+          if (fn === onPageWinnerFn) {
             const pill = grp.querySelector(".usl-ng__value.usl-badge");
             if (pill) pill.classList.add("usl-best");
           }
@@ -1385,6 +1430,7 @@
       }
       if (row && el.querySelector(".usl-metrics")) badgedRows.add(row.rowEl);
     }
+    syncWinnerRings(onPageWinnerFn);
     if (registered) { updatePanelSortBtn(); refreshPanelTimes(); }
     if ((PAGE_PREDICT || UNITED_FALLBACK) && navanWants.length) requestPredictions([...new Set(navanWants)]);
     recordIntegration(true, examinedRows.size, badgedRows.size);
@@ -1835,6 +1881,12 @@
   // binding (panel ⭐ and on-page ring) calls this so it can never disagree with
   // the strip about who won.
   function winnerFnOf(flights) { const w = eligibleWinner(flights); return w ? w.best.fn : null; }
+  function syncWinnerRings(winFn) {
+    document.querySelectorAll(".usl-metrics .usl-ng__value.usl-badge").forEach((pill) => {
+      const grp = pill.closest(".usl-metrics");
+      pill.classList.toggle("usl-best", !!(winFn && grp && grp.dataset.b === winFn));
+    });
+  }
 
   /* Build the decision strip as ONE structured component with an explicit state
    * modifier (Codex spec §4/§8). Winner is fail-closed via eligibleWinner();

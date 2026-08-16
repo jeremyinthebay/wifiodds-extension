@@ -78,8 +78,13 @@ const MATRIX = {
   "first-run-opens-on-update": { gate: FIRST_RUN_GATE, only: "first-run-coverage", expect: "first-run-coverage" },
   "first-run-no-permission-request": { gate: FIRST_RUN_GATE, only: "first-run-coverage", expect: "first-run-coverage" },
   "first-run-add-tabs-permission": { gate: FIRST_RUN_GATE, only: "first-run-coverage", expect: "first-run-coverage" },
+  "gf-empty-silent": { only: "google-empty-scored-rows", expect: "google-empty-scored-rows" },
+  "predict-host-no-ring": { only: "navan-winner-ring|alaska-no-united-action", expect: "navan-winner-ring" },
+  "popup-history-as-pick": { only: "popup-ranked-history-no-crown", expect: "popup-ranked-history-no-crown" },
+  "panel-position-memory-only": { only: "panel-minimize-move-controls", expect: "panel-minimize-move-controls" },
+  "unknown-as-no-starlink": { only: "guard-popup-state-matrix", expect: "guard-popup-state-matrix" },
 };
-const CONTROLS_EXPECTED = 51;
+const CONTROLS_EXPECTED = 56;
 
 // Owner ruling, 3 Aug 2026: keep these honest-degradation states, but never
 // manufacture a green mutation result for branches no supported host can

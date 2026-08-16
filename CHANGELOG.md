@@ -9,6 +9,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Fixed
+
+- Granted Google Flights search with no scored rows now says there are no scored flights in these results, instead of drawing a blank panel. Labels only. Google is still never reordered.
+- Alaska and Navan now use the same on-page winner ring as United when Best WiFi names a winner. No ring when there is no winner.
+- Popup flight list copy names lookup history, not a Best WiFi pick.
+- Panel dock and drag position is stored in local extension storage only.
+- Trip Guardian keeps unknown as unknown. Cannot confirm is still not no Starlink.
+
 ## [3.1.0] - 2026-08-12
 
 Chrome Web Store: not uploaded. Exact extension candidate review is pending.
