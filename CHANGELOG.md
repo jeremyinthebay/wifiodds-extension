@@ -16,6 +16,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Popup flight list copy names lookup history, not a Best WiFi pick.
 - Panel dock and drag position is stored in local extension storage only.
 - Trip Guardian keeps unknown as unknown. Cannot confirm is still not no Starlink.
+- Manifest `homepage_url` now points at the live product URL https://wifiodds.com/ rather than the GitHub source repo. Live Store remains 3.0.2.
 
 ## [3.1.0] - 2026-08-12
 
