@@ -99,7 +99,9 @@ function renderFlights(flights, o, d) {
   var onPage = sameRoute(o, d) && Object.keys(pageFlights).length > 0;
   var wrap = el("div", null);
   wrap.appendChild(el("div", "usl-section-label",
-    onPage ? "Flights — highest odds first · click to jump to it on the page" : "Flights — highest odds first"));
+    onPage
+      ? "Lookup history, by next-gen odds. Click a flight to jump to it on the page"
+      : "Lookup history, by next-gen odds"));
   top.forEach(function (f, i) {
     var row = el("div", "usl-flight-row");
     var times = pageFlights[f.fn];
@@ -578,6 +580,10 @@ function tripState(t) {
   if (t.lastStatus === "early")
     return { key: "c", cls: "usl-chip-c", label: stale ? "Update unavailable" : "Awaiting assignment" };
   if (t.lastStatus === "invalid") return { key: "c", cls: "usl-chip-c", label: "Flight not found" };
+  // Unknown is unknown: a check with no usable Starlink fact is not "no
+  // Starlink" and not "Cannot confirm" (that label is for a known aircraft).
+  if (t.lastStatus === "unknown" || (t.lastError && !t.lastStatus && !t.asOf))
+    return { key: "c", cls: "usl-chip-c", label: "Unknown" };
   return { key: "c", cls: "usl-chip-c", label: stale ? "Update unavailable" : "Checking…" };
 }
 
@@ -607,6 +613,8 @@ function tripLine(t) {
   }
   if (t.lastStatus === "unconfirmed")
     return { cls: "usl-t-early", txt: "? tail " + (t.tail || "?") + " assigned, Starlink unconfirmed" };
+  if (t.lastStatus === "unknown" || (t.lastError && !t.lastStatus && !t.asOf))
+    return { cls: "usl-t-early", txt: "Starlink status unknown" };
   if (t.lastStatus === "early") {
     var was = lastPublished(t);
     if (was)

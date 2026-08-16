@@ -1,29 +1,29 @@
-# Chrome Web Store release materials
+# Live Chrome Web Store record (extension repo)
 
-The current release package is WiFi Odds for Flights v3.1.0. Jeremy alone uploads and submits the
-reviewed package. Use [SUBMIT-3.1.0.md](store-assets/v3.0/SUBMIT-3.1.0.md) as the field-by-field
-dashboard source of truth.
+This file is this repository's record of what is live. It is not a rewrite of the Chrome Web Store listing.
+Jeremy uploads Store packages. Paste-ready listing copy stays in `store-assets/`
+and is not edited here.
 
-## Current status
+Version: **3.0.2**, published 11 Aug 2026.
 
-- Source: final candidate preparation after the Navan time and Store-verifier repairs. It has no
-  reviewed Store ZIP yet.
-- Site model: pinned to Claude-reviewed, live site commit
-  `cae8be119b83abff12f57877c1cf344b03b8b6b8` and model blob
-  `8b04acd3a7c88f7dea86d5367a5de1ffc125222e`.
-- Screenshots: four 1280×800 fixture captures were frozen from committed source `6ecac4a` only
-  after the full browser gate passed. The Google Flights image now shows a recognizable search and
-  results page rather than an empty fixture. The release bundle carries the exact provenance block.
-- Privacy and permissions: unchanged from the published 3.0.2 listing. The v3.1.0 package adds no
-  host, permission, stored field, collection, transmission, or retention behavior.
+Name: WiFi Odds for Flights
 
-## Operator boundary
+Summary, matching the live 3.0.2 manifest:
 
-1. Wait for the exact extension candidate, ZIP hash, and Claude Tier A PASS receipt.
-2. Upload only the reviewed ZIP and the four images named in the submission package.
-3. Paste the replacement listing and privacy fields from the submission package.
-4. Save the draft, inspect Chrome's change summary, and submit it yourself.
-5. Report upload, submission, approval, and publication as separate states.
+`Per-flight odds your plane has next-gen WiFi, as you search. Auto-sorts single-airline results by odds. Unofficial.`
 
-The Chrome Web Store summary must continue to match `extension/manifest.json` exactly. The longer
-Store description belongs in the submission package.
+Product: a free Chrome overlay for airline direct search.
+
+Hosts: United, Alaska, and Navan are scored. Google Flights is labels only.
+
+Best WiFi refuses a thin lead. It names a winner only after two scored
+flights, an eight point gap, and medium or high tracker confidence.
+
+Product homepage: https://wifiodds.com/
+
+Manifest `homepage_url`: https://wifiodds.com/
+
+Privacy: https://wifiodds.com/privacy
+
+Do not describe a later store version as live. Do not dump airline brand lists.
+The live product URL is https://wifiodds.com/, not the retired smithfamai.com/unitedstarlink product.

@@ -9,6 +9,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Fixed
+
+- Granted Google Flights search with no scored rows now says there are no scored flights in these results, instead of drawing a blank panel. Labels only. Google is still never reordered.
+- Alaska and Navan now use the same on-page winner ring as United when Best WiFi names a winner. No ring when there is no winner.
+- Popup flight list copy names lookup history, not a Best WiFi pick.
+- Panel dock and drag position is stored in local extension storage only.
+- Trip Guardian keeps unknown as unknown. Cannot confirm is still not no Starlink.
+- Manifest `homepage_url` now points at the live product URL https://wifiodds.com/ rather than the GitHub source repo. Live Store remains 3.0.2.
+- README.md and STORE.md now record live Store 3.0.2 and https://wifiodds.com/. They no longer describe the retired smithfamai.com/unitedstarlink encyclopedia as the live product. STORE.md is not a rewrite of the Chrome Web Store listing.
+- README no longer names ConnectScore as a live customer metric. The overlay prints STREAMING / Streaming score.
+
 ## [3.1.0] - 2026-08-12
 
 Chrome Web Store: not uploaded. Exact extension candidate review is pending.

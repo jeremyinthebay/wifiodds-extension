@@ -398,6 +398,41 @@ const MUTATIONS = {
     expect: "outcome-capture-local-only",
     note: "recording a local outcome silently sends a network request",
   },
+  "gf-empty-silent": {
+    file: "content.js",
+    from: '<p class="usl-gf-empty" role="status">No scored flights in these results.</p>',
+    to: "",
+    expect: "google-empty-scored-rows",
+    note: "granted Google Flights search with no scored rows draws nothing",
+  },
+  "predict-host-no-ring": {
+    file: "content.js",
+    from: "function syncWinnerRings(winFn) {",
+    to: "function syncWinnerRings(winFn) { if (PAGE_PREDICT) winFn = null;",
+    expect: "navan-winner-ring",
+    note: "Alaska and Navan lose the on-page winner ring United already shows",
+  },
+  "popup-history-as-pick": {
+    file: "popup.js",
+    from: ': "Lookup history, by next-gen odds"',
+    to: ': "Flights — highest odds first"',
+    expect: "popup-ranked-history-no-crown",
+    note: "popup lookup list is copy-framed as a recommendation again",
+  },
+  "panel-position-memory-only": {
+    file: "content.js",
+    from: 'try { chrome.storage.local.set({ uslPanelPlacement: panelPlacement }); } catch (e) {}',
+    to: "try { /* placement stays in memory */ } catch (e) {}",
+    expect: "panel-minimize-move-controls",
+    note: "panel dock/drag is no longer written to chrome.storage.local",
+  },
+  "unknown-as-no-starlink": {
+    file: "popup.js",
+    from: 'return { key: "c", cls: "usl-chip-c", label: "Unknown" };',
+    to: 'return { key: "b", cls: "usl-chip-b", label: "No Starlink ✗" };',
+    expect: "guard-popup-state-matrix",
+    note: "Trip Guardian unknown collapsed into confirmed non-Starlink",
+  },
 };
 const MUT = process.env.E2E_MUT || (process.env.E2E_NEG ? "bug3-loading" : "");
 const NEG = !!MUT;
@@ -489,6 +524,12 @@ function googleFlightsFixture() {
   return `<!doctype html><html><body><h1>Flights SFO to DEN</h1><ul>
     <li style="padding:12px">8:30 a.m. – 10:20 a.m. · Delta · DL 123 · SFO to DEN</li>
     <li style="padding:12px">11:05 a.m. – 1:15 p.m. · United 1596 · SFO to DEN</li>
+  </ul></body></html>`;
+}
+function googleFlightsEmptyFixture() {
+  return `<!doctype html><html><body><h1>Flights SFO to DEN</h1><ul>
+    <li style="padding:12px">8:30 a.m. – 10:20 a.m. · Frontier 1229 · SFO to DEN</li>
+    <li style="padding:12px">11:05 a.m. – 1:15 p.m. · Spirit 401 · SFO to DEN</li>
   </ul></body></html>`;
 }
 function googleFlightsAlaskaFixture() {
@@ -649,6 +690,11 @@ function stripProbe() {
     cta: !!(s && s.querySelector(".usl-decision__cta")),
     confirmInStrip: !!(s && s.querySelector(".usl-decision__confirm")),
     ring: !!document.querySelector(".usl-badge.usl-best"),
+    winnerRingFn: (() => {
+      const pill = document.querySelector(".usl-metrics .usl-ng__value.usl-best");
+      const grp = pill && pill.closest(".usl-metrics");
+      return (grp && grp.dataset.b) || null;
+    })(),
     boundaryCount: document.querySelectorAll(".usl-boundary").length,
     prioritizeBtn: !!document.querySelector(".usl-prioritize"),
     decisionFigures: s ? [...s.querySelectorAll('[data-evidence-kind="flight-nextgen"]')].map((e) => ({
@@ -819,7 +865,8 @@ const CASES = [
       });
       return { appeared: true, panelText: out.text, badges: [], probe: out, checks: {
         rankedRowsRemain: out.rows === 2 && /UA1596/.test(out.text) && /68%/.test(out.text),
-        sortStatementRemains: /highest odds first/i.test(out.text),
+        lookupHistoryCopy: /lookup history/i.test(out.text) && /next-gen odds/i.test(out.text),
+        notAPick: !/best wifi|highest odds first/i.test(out.text),
         popupNeverCrownsRowZero: out.stars === 0 && !/⭐/.test(out.text),
       } };
     },
@@ -968,6 +1015,30 @@ const CASES = [
     },
   },
   {
+    name: "google-empty-scored-rows", google: true, googleFlightsEmpty: true,
+    googleUrl: "https://www.google.com/travel/flights/search", o: "SFO", d: "DEN", rows: [],
+    mock: { predict: {}, route: [], itins: [] },
+    driver: async ({ page, url, sw }) => {
+      if (sw) await sw.evaluate(async () => { for (let i = 0; i < 30; i++) { const r = await chrome.scripting.getRegisteredContentScripts({ ids: ["usl-dyn-gflights"] }); if (r.length) return true; await new Promise((x) => setTimeout(x, 100)); } return false; });
+      await page.goto(url, { waitUntil: "domcontentloaded" });
+      await page.waitForSelector(".usl-panel", { timeout: 30000 });
+      const out = await page.evaluate(() => ({
+        text: (document.querySelector(".usl-panel") || {}).innerText || "",
+        empty: (document.querySelector(".usl-gf-empty") || {}).textContent || "",
+        chips: document.querySelectorAll(".usl-gf-chip").length,
+        prioritize: !!document.querySelector(".usl-prioritize, .usl-undo"),
+        order: [...document.querySelectorAll("body > ul > li")].map((e) =>
+          /Frontier/.test(e.textContent) ? "Frontier" : /Spirit/.test(e.textContent) ? "Spirit" : "other"),
+      }));
+      return { appeared: true, panelText: out.text, badges: [], probe: out, checks: {
+        emptyCopy: /no scored flights in these results/i.test(out.empty || out.text),
+        labelsOnly: out.chips === 0,
+        googleOrderUnchanged: eq(out.order, ["Frontier", "Spirit"]),
+        neverReordersGoogle: out.prioritize === false,
+      } };
+    },
+  },
+  {
     name: "figure-disclosure-google-model", google: true, googleFlights: true,
     googleUrl: "https://www.google.com/travel/flights/search", o: "SFO", d: "DEN", rows: [],
     mock: { predict: { UA1596: { p: 0.68, obs: 51, conf: "high" } }, route: [], itins: [] },
@@ -1096,6 +1167,7 @@ const CASES = [
       accessibleSentenceHistorical: !!strip && /historical Starlink odds/.test(strip.label),
       oneCta: !!strip && strip.cta === true,
       ringMatchesWinner: !!strip && strip.ring === true,
+      winnerRingOnUA1596: !!strip && strip.winnerRingFn === "UA1596",
       // R23 freshness amendment: NO freshness claim anywhere in the panel, and
       // no confirmation token without a confirmed-departure fact (far date).
       noFreshnessClaim: !/Updated|updated|fresh|Fresh|recent|Recent|today|Today/.test(txt),
@@ -1118,8 +1190,7 @@ const CASES = [
   {
     // The fixed panel must be easy to get out of the way without a mouse. Its
     // pointer drag is an enhancement; Minimize/Open and left/right docking are
-    // native keyboard controls. Movement stays page-local and never creates a
-    // stored position or dock preference.
+    // native keyboard controls. Dock and drag write chrome.storage.local only.
     name: "panel-minimize-move-controls",
     o: "SFO", d: "DEN",
     rows: [{ num: 1596, time: "8:30 a.m." }, { num: 1214, time: "11:05 a.m." }],
@@ -1150,7 +1221,8 @@ const CASES = [
           keyboardDockRight: false,
           pointerDragMovesPanel: false,
           dragStaysInViewport: false,
-          noNewPositionStorage: true,
+          placementSavedLocally: false,
+          placementRestoredAfterReload: false,
         },
       };
 
@@ -1183,16 +1255,33 @@ const CASES = [
         await page.mouse.move(430, 180, { steps: 5 });
         await page.mouse.up();
       }
+      if (sw) {
+        await sw.evaluate(async () => {
+          for (let i = 0; i < 25; i++) {
+            const v = await chrome.storage.local.get("uslPanelPlacement");
+            if (v.uslPanelPlacement && v.uslPanelPlacement.mode === "free") return true;
+            await new Promise((r) => setTimeout(r, 40));
+          }
+          return false;
+        });
+      }
       const dragged = await page.evaluate(() => {
         const r = document.querySelector(".usl-panel").getBoundingClientRect();
         return { left: r.left, top: r.top, right: r.right, bottom: r.bottom,
           vw: innerWidth, vh: innerHeight };
       });
       const after = sw ? await sw.evaluate(() => chrome.storage.local.get(null)) : {};
-      const forbidden = (o) => Object.keys(o || {}).filter((k) => /position|dock|panelLeft|panelTop/i.test(k));
+      const stored = after && after.uslPanelPlacement;
+      await page.reload({ waitUntil: "domcontentloaded" });
+      await page.waitForSelector(".usl-panel", { timeout: 30000 });
+      const restored = await page.waitForFunction((pos) => {
+        const r = document.querySelector(".usl-panel")?.getBoundingClientRect();
+        return r && Math.abs(r.left - pos.left) <= 4 && Math.abs(r.top - pos.top) <= 4
+          ? { left: r.left, top: r.top } : false;
+      }, dragged, { timeout: 15000 }).then((h) => h.jsonValue()).catch(() => null);
       const panelText = await page.$eval(".usl-panel", (e) => e.innerText);
       return {
-        appeared: true, panelText, badges: [], probe: { collapsed, left, right, dragged, before, after },
+        appeared: true, panelText, badges: [], probe: { collapsed, left, right, dragged, before, after, restored },
         checks: {
           visibleMinimizeLabel: controls.minimize.trim() === "Minimize",
           compactTabAfterMinimize: collapsed.width <= 210 && collapsed.open === "Open" && collapsed.bodyHidden,
@@ -1201,7 +1290,10 @@ const CASES = [
           pointerDragMovesPanel: Math.abs(dragged.left - right.left) > 1 || Math.abs(dragged.top - right.top) > 1,
           dragStaysInViewport: dragged.left >= 0 && dragged.top >= 0 &&
             dragged.right <= dragged.vw && dragged.bottom <= dragged.vh,
-          noNewPositionStorage: forbidden(before).length === 0 && forbidden(after).length === 0,
+          placementSavedLocally: !!stored && stored.mode === "free" &&
+            Number.isFinite(stored.left) && Number.isFinite(stored.top) &&
+            !Object.keys(after).some((k) => k !== "uslPanelPlacement" && /position|dock|panelLeft|panelTop/i.test(k)),
+          placementRestoredAfterReload: !!restored,
         },
       };
     },
@@ -2148,10 +2240,11 @@ const CASES = [
           guardPrediction: { status: "yes", probability: 72, tier: "REPORTED", source: "unitedstarlinktracker.com", sourceDate: day(8) } },
         { fn: "UA500", date: day(9), route: "SFO-DEN", added: now, history: [], asOf: now - 3 * 36e5, lastError: "check budget exhausted", lastStatus: "early", prob: 41 },
         { fn: "UA600", date: day(10), route: "SFO-DEN", added: now, history: [], asOf: null, lastError: null, lastStatus: "invalid", invalidCount: 1 },
+        { fn: "UA700", date: day(11), route: "SFO-DEN", added: now, history: [], asOf: null, lastError: "no usable response" },
       ];
       await sw.evaluate((t) => chrome.storage.local.set({ uslTrips: t }), trips);
       await page.goto("chrome-extension://" + extId + "/popup.html", { waitUntil: "domcontentloaded" });
-      await page.waitForFunction(() => document.querySelectorAll(".usl-trip-row").length >= 6, null, { timeout: 15000 }).catch(() => {});
+      await page.waitForFunction(() => document.querySelectorAll(".usl-trip-row").length >= 7, null, { timeout: 15000 }).catch(() => {});
       const rows = await page.evaluate(() =>
         [...document.querySelectorAll(".usl-trip-row")].map((r) => ({
           txt: r.innerText,
@@ -2167,7 +2260,7 @@ const CASES = [
       const chipC = await pixelContrast(page, ".usl-chip-c");
       const panelText = rows.map((r) => r.txt).join("\n---\n");
       return {
-        appeared: rows.length >= 6, panelText, badges: [],
+        appeared: rows.length >= 7, panelText, badges: [],
         probe: { chipA, chipB, chipC },
         checks: {
           aChipConfirmed: row("UA100").chip === "Starlink ✓",
@@ -2180,6 +2273,10 @@ const CASES = [
           cOutageCarriesDatedFact: /as of /.test(row("UA500").txt),
           cInvalidIsItsOwnReason: row("UA600").chip === "Flight not found",
           cInvalidNeverAwaiting: !/Awaiting assignment/.test(row("UA600").txt),
+          unknownChipSaysUnknown: row("UA700").chip === "Unknown",
+          unknownNeverNoStarlink: !/No Starlink|✗/.test(row("UA700").txt),
+          unknownNeverCannotConfirm: !/Cannot confirm/.test(row("UA700").txt),
+          unknownLineKeepsUnknown: /Starlink status unknown/.test(row("UA700").txt),
           guardCurrentOddsDisclose: row("UA400").figures.some((x) => x.value === "55%" &&
             x.source === "unitedstarlinktracker.com" && /sample not provided/i.test(x.drawer) &&
             /source date not provided/i.test(x.drawer) && !new RegExp(day(8)).test(x.drawer)),
@@ -2566,10 +2663,20 @@ const CASES = [
       await page.goto(url, { waitUntil: "domcontentloaded" });
       await page.waitForSelector(".usl-panel", { timeout: 30000 });
       await page.waitForFunction(() => /AS1/.test((document.querySelector(".usl-panel") || {}).innerText || ""), null, { timeout: 25000 });
+      await page.waitForFunction(() => {
+        const win = document.querySelector('.usl-metrics[data-b="AS1"] .usl-ng__value.usl-badge.usl-best');
+        return !!win;
+      }, null, { timeout: 25000 }).catch(() => {});
       const out = await page.evaluate(() => ({
         text: document.querySelector(".usl-panel").innerText,
         carrierAction: !!document.querySelector(".usl-prioritize"),
         sorted: !!document.querySelector(".usl-sorted"),
+        winnerRingFn: (() => {
+          const pill = document.querySelector(".usl-metrics .usl-ng__value.usl-best");
+          const grp = pill && pill.closest(".usl-metrics");
+          return (grp && grp.dataset.b) || null;
+        })(),
+        runnerRing: !!document.querySelector('.usl-metrics[data-b="AS7"] .usl-ng__value.usl-badge.usl-best'),
       }));
       out.decisionName = await page.locator(".usl-decision").ariaSnapshot().catch(() => "");
       return { appeared: true, panelText: out.text, badges: [], probe: out, checks: {
@@ -2577,6 +2684,41 @@ const CASES = [
         noUnitedCarrierAction: out.carrierAction === false && !/Prioritize United flights/.test(out.text),
         noUnitedClauseInAlaskaComputedName: !/United flights/.test(out.decisionName),
         singleCarrierPathStillWorks: /NEXT-GEN ODDS/.test(out.text),
+        winnerRingOnAS1: out.winnerRingFn === "AS1",
+        noRingOnRunner: out.runnerRing === false,
+      } };
+    },
+  },
+  {
+    name: "navan-winner-ring",
+    navan: true, o: "DEN", d: "SFO",
+    rows: [
+      { label: "United 1596", time: "8:30 a.m." },
+      { label: "United 1214", time: "11:05 a.m." },
+    ],
+    mock: { o: "DEN", d: "SFO", predict: {
+      UA1596: { p: 0.68, obs: 50, conf: "high" },
+      UA1214: { p: 0.30, obs: 40, conf: "medium" },
+    } },
+    driver: async ({ page, url }) => {
+      await page.goto(url, { waitUntil: "domcontentloaded" });
+      await page.waitForSelector(".usl-panel", { timeout: 30000 });
+      await page.waitForFunction(() => /UA1596/.test((document.querySelector(".usl-panel") || {}).innerText || ""), null, { timeout: 25000 });
+      await page.waitForFunction(() => !!document.querySelector('.usl-metrics[data-b="UA1596"] .usl-ng__value.usl-badge.usl-best'), null, { timeout: 25000 }).catch(() => {});
+      const out = await page.evaluate(() => ({
+        text: document.querySelector(".usl-panel").innerText,
+        winnerRingFn: (() => {
+          const pill = document.querySelector(".usl-metrics .usl-ng__value.usl-best");
+          const grp = pill && pill.closest(".usl-metrics");
+          return (grp && grp.dataset.b) || null;
+        })(),
+        runnerRing: !!document.querySelector('.usl-metrics[data-b="UA1214"] .usl-ng__value.usl-badge.usl-best'),
+        stripState: (document.querySelector(".usl-decision") || {}).dataset.uslState || null,
+      }));
+      return { appeared: true, panelText: out.text, badges: [], probe: out, checks: {
+        stripIsWinnerState: out.stripState === "winner",
+        winnerRingOnUA1596: out.winnerRingFn === "UA1596",
+        noRingOnRunner: out.runnerRing === false,
       } };
     },
   },
@@ -3200,7 +3342,9 @@ async function run() {
     for (const c of CASES) {
       if (ONLY && !ONLY.test(c.name)) continue;
       currentFixture = c.google
-        ? (c.googleFlightsAlaska ? googleFlightsAlaskaFixture() : c.googleFlights ? googleFlightsFixture() : googleFixture())
+        ? (c.googleFlightsAlaska ? googleFlightsAlaskaFixture()
+          : c.googleFlightsEmpty ? googleFlightsEmptyFixture()
+          : c.googleFlights ? googleFlightsFixture() : googleFixture())
         : c.navan
         ? navanFixture({ o: c.o, d: c.d, rows: c.rows, topHtml: c.topHtml })
         : c.alaska
