@@ -433,6 +433,13 @@ const MUTATIONS = {
     expect: "guard-popup-state-matrix",
     note: "Trip Guardian unknown collapsed into confirmed non-Starlink",
   },
+  "popup-route-search-restored": {
+    file: "popup.html",
+    from: '<div id="usl-credit" class="usl-credit">data: unitedstarlinktracker.com</div>\n\n    <div id="usl-status" class="usl-status"></div>',
+    to: '<div id="usl-credit" class="usl-credit">data: unitedstarlinktracker.com</div>\n\n    <form id="usl-form" class="usl-form">\n      <select id="usl-airline" class="usl-airline" title="Airline">\n        <option value="UA">UA</option>\n      </select>\n      <input id="usl-from" class="usl-input" type="text" maxlength="3" placeholder="FROM" autocomplete="off" />\n      <input id="usl-to" class="usl-input" type="text" maxlength="3" placeholder="TO" autocomplete="off" />\n      <button id="usl-go" class="usl-go" type="submit">Go</button>\n    </form>\n\n    <div id="usl-status" class="usl-status">Enter a route to check Starlink odds.</div>',
+    expect: "popup-no-route-search",
+    note: "leftover popup airline/FROM/TO/Go route search returns",
+  },
 };
 const MUT = process.env.E2E_MUT || (process.env.E2E_NEG ? "bug3-loading" : "");
 const NEG = !!MUT;
@@ -845,6 +852,49 @@ async function focusRingContrast(page, selector) {
 
 const CASES = [
   {
+    name: "popup-no-route-search",
+    o: "SFO", d: "DEN", rows: [], mock: {},
+    driver: async ({ page, extId }) => {
+      if (!extId) return { appeared: false, panelText: "(no extension id)", badges: [], checks: { extIdPresent: false } };
+      await page.goto("chrome-extension://" + extId + "/popup.html", { waitUntil: "domcontentloaded" });
+      await page.waitForSelector("#usl-cs, #usl-settings, #usl-watch-form", { timeout: 15000 });
+      const out = await page.evaluate(() => {
+        const text = document.body.innerText || "";
+        const goButtons = [...document.querySelectorAll("button")].filter((b) => (b.textContent || "").trim() === "Go");
+        return {
+          text,
+          airline: !!document.getElementById("usl-airline"),
+          from: !!document.getElementById("usl-from"),
+          to: !!document.getElementById("usl-to"),
+          go: !!document.getElementById("usl-go"),
+          form: !!document.getElementById("usl-form"),
+          results: !!document.getElementById("usl-results"),
+          goButtons: goButtons.length,
+          fromPlaceholder: !!document.querySelector('input[placeholder="FROM"]'),
+          toPlaceholder: !!document.querySelector('input[placeholder="TO"]'),
+          setup: !!document.getElementById("usl-setup"),
+          hosts: !!document.getElementById("usl-hosts"),
+          cs: !!document.getElementById("usl-cs"),
+          settings: !!document.getElementById("usl-settings"),
+          trips: !!document.getElementById("usl-trips"),
+          watch: !!document.getElementById("usl-watch-form"),
+        };
+      });
+      return { appeared: true, panelText: out.text, badges: [], probe: out, checks: {
+        noAirlineSelect: out.airline === false,
+        noFromField: out.from === false && out.fromPlaceholder === false,
+        noToField: out.to === false && out.toPlaceholder === false,
+        noGoButton: out.go === false && out.goButtons === 0,
+        noRouteForm: out.form === false && out.results === false,
+        noRouteCopy: !/Enter a route to check Starlink odds/.test(out.text),
+        finishSetupPresent: out.setup === true && out.hosts === true,
+        connectScorePresent: out.cs === true,
+        settingsPresent: out.settings === true,
+        guardedTripsPresent: out.trips === true && out.watch === true,
+      } };
+    },
+  },
+  {
     name: "popup-ranked-history-no-crown",
     o: "SFO", d: "DEN", rows: [], mock: {},
     driver: async ({ page, extId }) => {
@@ -856,7 +906,9 @@ const CASES = [
           { fn: "UA1596", prob: 68, obs: 51, conf: "high" },
           { fn: "UA1214", prob: 30, obs: 40, conf: "medium" },
         ], "SFO", "DEN");
-        document.getElementById("usl-results").replaceChildren(block);
+        const host = document.createElement("div");
+        document.body.appendChild(host);
+        host.replaceChildren(block);
         return {
           text: block.innerText,
           stars: block.querySelectorAll(".usl-star").length,
@@ -888,7 +940,9 @@ const CASES = [
         ], "SFO", "DEN");
         const itins = renderItins([{ joint: 55, hours: 5.5, coverage: "full", via: ["ORD"],
           legs: [{ fn: "UA1", obs: 20 }, { fn: "UA2", obs: 30 }] }]);
-        document.getElementById("usl-results").replaceChildren(flights, itins);
+        const host = document.createElement("div");
+        document.body.appendChild(host);
+        host.replaceChildren(flights, itins);
         renderConnectScores();
         return {
           kinds: [...document.querySelectorAll(".usl-evidence-trigger")].map((e) => e.dataset.evidenceKind),

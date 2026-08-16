@@ -9,6 +9,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Removed
+
+- Leftover popup airline/FROM/TO/Go route search and “Enter a route to check Starlink odds.” ConnectScore, settings, guarded trips, and finish-setup stay. Unpublished; live Store remains 3.0.2.
+
 ### Fixed
 
 - Granted Google Flights search with no scored rows now says there are no scored flights in these results, instead of drawing a blank panel. Labels only. Google is still never reordered.

@@ -2,15 +2,11 @@
 // v1.1: flights are sorted by odds, show departure times found on the page, and
 // clicking a row scrolls the united.com tab to that flight.
 
-var fromEl = document.getElementById("usl-from");
-var toEl = document.getElementById("usl-to");
-var formEl = document.getElementById("usl-form");
-var goEl = document.getElementById("usl-go");
 var statusEl = document.getElementById("usl-status");
-var resultsEl = document.getElementById("usl-results");
 var airlineEl = document.getElementById("usl-airline");
 var creditEl = document.getElementById("usl-credit");
 var fullLinkEl = document.getElementById("usl-full-link");
+var currentAirline = "UA";
 
 var activeTab = null;      // active browser tab, on any page
 var tabRoute = null;       // {o,d} parsed from that tab
@@ -31,11 +27,13 @@ var ALASKA_ORIGINS = ["https://www.alaskaair.com/*", "https://alaskaair.com/*"];
 var GFLIGHTS_ORIGINS = ["https://www.google.com/*"];
 
 function airline() {
-  var v = airlineEl && airlineEl.value ? airlineEl.value.toUpperCase() : "UA";
+  var v = currentAirline;
+  if (airlineEl && airlineEl.value) v = airlineEl.value.toUpperCase();
   return TRACKER_HOST[v] ? v : "UA";
 }
 function setAirline(a) {
   a = TRACKER_HOST[String(a || "").toUpperCase()] ? String(a).toUpperCase() : "UA";
+  currentAirline = a;
   if (airlineEl) airlineEl.value = a;
   updateCredit();
   return a;
@@ -59,8 +57,7 @@ function el(tag, className, text) {
   return e;
 }
 
-function clearResults() { resultsEl.innerHTML = ""; }
-function setStatus(text) { statusEl.textContent = text || ""; }
+function setStatus(text) { if (statusEl) statusEl.textContent = text || ""; }
 function sourceDateLabel(res) {
   var d = res && typeof res.sourceDate === "string" ? res.sourceDate : "";
   return /^\d{4}-\d{2}-\d{2}$/.test(d) ? "source date " + d : "source date not provided";
@@ -194,62 +191,6 @@ function renderNote(note) {
   return wrap;
 }
 
-function renderResults(o, d, data) {
-  clearResults();
-  var any = false;
-  var flightsBlock = renderFlights(data.flights || [], o, d);
-  if (flightsBlock) { resultsEl.appendChild(flightsBlock); any = true; }
-  var itinsBlock = renderItins(data.itins || []);
-  if (itinsBlock) { resultsEl.appendChild(itinsBlock); any = true; }
-  var depsBlock = renderDeps(data.deps || []);
-  if (depsBlock) { resultsEl.appendChild(depsBlock); any = true; }
-  var noteBlock = renderNote(data.note);
-  if (noteBlock) { resultsEl.appendChild(noteBlock); any = true; }
-  if (!any) resultsEl.appendChild(renderEmpty(o, d));
-}
-
-function loadPageFlights(o, d) {
-  if (!activeTab || !sameRoute(o, d)) return;
-  chrome.tabs.sendMessage(activeTab.id, { type: "flightsOnPage" }, function (resp) {
-    if (chrome.runtime.lastError || !resp || !resp.flights) return;
-    pageFlights = {};
-    resp.flights.forEach(function (f) { pageFlights[f.fn] = f.times || ""; });
-    if (lastData) renderResults(lastO, lastD, lastData); // re-render with times + clickability
-  });
-}
-
-function loadRoute(o, d) {
-  o = (o || "").toUpperCase().trim();
-  d = (d || "").toUpperCase().trim();
-  if (o.length !== 3 || d.length !== 3) {
-    setStatus("Enter two 3-letter airport codes.");
-    return;
-  }
-  fromEl.value = o;
-  toEl.value = d;
-  goEl.disabled = true;
-  updateCredit();
-  setStatus("Loading " + airline() + " " + o + " → " + d + "…");
-  clearResults();
-
-  chrome.runtime.sendMessage({ type: "routeData", o: o, d: d, airline: airline() }, function (res) {
-    goEl.disabled = false;
-    if (chrome.runtime.lastError || !res) {
-      setStatus("Could not reach the extension background page.");
-      return;
-    }
-    lastData = res; lastO = o; lastD = d;
-    if (!res.ok) {
-      setStatus(res.error ? "Error: " + res.error : "No data available yet.");
-      renderResults(o, d, res);
-      return;
-    }
-    setStatus(routeResultStatus(res));
-    renderResults(o, d, res);
-    loadPageFlights(o, d);
-  });
-}
-
 // Route + airline from the active tab's URL. united.com and alaskaair.com both
 // carry the O/D pair in the query string (under different param names).
 function parseTabUrl(url) {
@@ -277,41 +218,21 @@ function parseTabUrl(url) {
   }
 }
 
-fromEl.addEventListener("input", function () {
-  fromEl.value = fromEl.value.toUpperCase().replace(/[^A-Z]/g, "");
-});
-toEl.addEventListener("input", function () {
-  toEl.value = toEl.value.toUpperCase().replace(/[^A-Z]/g, "");
-});
-
-formEl.addEventListener("submit", function (e) {
-  e.preventDefault();
-  loadRoute(fromEl.value, toEl.value);
-});
-
 function init() {
   chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
     var tab = tabs && tabs[0];
     var urlRoute = tab && tab.url ? parseTabUrl(tab.url) : null;
     activeTab = tab || null;
     syncHosts(tab);
-    if (!urlRoute) {
-      setStatus("Enter a route to check Starlink odds.");
-      return;
-    }
-    setAirline(urlRoute.airline);
-    // Ask the content script which leg is actually being shown (round trips:
-    // the URL still says outbound while the RETURN list is on screen).
+    if (urlRoute && urlRoute.airline) setAirline(urlRoute.airline);
+    if (!tab || !tab.id) return;
+    // Airline of the active booking tab still drives the credit line and
+    // bare-digit Watch defaults. Route lookup itself was removed from the popup.
     chrome.tabs.sendMessage(tab.id, { type: "pageContext" }, function (pc) {
       void chrome.runtime.lastError;
       if (pc && pc.airline) setAirline(pc.airline);
-      var route = pc && pc.o && pc.d ? { o: pc.o, d: pc.d } : urlRoute;
-      if (!route.o || !route.d) {
-        setStatus("Enter a route to check Starlink odds.");
-        return;
-      }
-      tabRoute = { o: route.o, d: route.d };
-      loadRoute(route.o, route.d);
+      if (pc && pc.o && pc.d) tabRoute = { o: pc.o, d: pc.d };
+      else if (urlRoute && urlRoute.o && urlRoute.d) tabRoute = { o: urlRoute.o, d: urlRoute.d };
     });
   });
 }
@@ -453,11 +374,6 @@ function syncEnableButton(tab) { syncHosts(tab); }
  * names rather than a second implementation. */
 function syncGFlightsButton(tab) { syncHosts(tab); }
 
-if (airlineEl) airlineEl.addEventListener("change", function () {
-  updateCredit();
-  if (fromEl.value.length === 3 && toEl.value.length === 3) loadRoute(fromEl.value, toEl.value);
-});
-
 updateCredit();
 init();
 
@@ -504,7 +420,7 @@ function renderConnectScores() {
     var note = el("div", "usl-cs-note", a.note);
     if (a.instrumented) {
       note.appendChild(document.createTextNode(" "));
-      note.appendChild(el("span", "usl-cs-live", "· live per-flight odds ↑ above"));
+      note.appendChild(el("span", "usl-cs-live", "· live per-flight odds on booking pages"));
     } else if (a.tracker) {
       // Tracked upstream but coarse-only (Hawaiian: aircraft-type derived, no
       // per-flight probability published) — credit the source, promise nothing.
@@ -829,7 +745,7 @@ function loadTrips() {
 watchForm.addEventListener("submit", function (e) {
   e.preventDefault();
   var fn = (watchFn.value || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
-  // Bare digits inherit the airline currently selected above.
+  // Bare digits inherit the airline of the active booking tab, else UA.
   if (/^\d{1,4}$/.test(fn)) fn = airline() + fn;
   if (!/^(?:UA|AS)\d{1,4}$/.test(fn)) { watchStatus.textContent = "Enter a flight like UA1812 or AS1."; return; }
   if (!watchDate.value) { watchStatus.textContent = "Pick a date."; return; }
