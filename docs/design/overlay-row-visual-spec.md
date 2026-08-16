@@ -1,8 +1,8 @@
 # WiFi Odds booking-row visual pass
 
-Status: design only  
-Owner: Sol  
-Requested by: Jeremy Smith, 16 August 2026  
+- Status: design only
+- Owner: Sol
+- Requested by: Jeremy Smith, 16 August 2026
 Mock: [`docs/mockups/overlay-row-visual-pass.html`](../mockups/overlay-row-visual-pass.html)
 
 ## Decision
@@ -95,9 +95,9 @@ Unknown is written as `— next-gen`, not `0%`. A failed request is written as
 
 Visible examples:
 
-> **Next-gen WiFi** · Starlink · ✓ tail assigned  
-> **Streaming WiFi** · 2Ku · ✓ tail assigned  
-> **Basic WiFi** · Panasonic · ✓ tail assigned
+- **Next-gen WiFi** · Starlink · ✓ tail assigned
+- **Streaming WiFi** · 2Ku · ✓ tail assigned
+- **Basic WiFi** · Panasonic · ✓ tail assigned
 
 The WiFi type is the headline. Percentages disappear from the row because the
 assigned aircraft is now the more specific fact. The provider is secondary and
