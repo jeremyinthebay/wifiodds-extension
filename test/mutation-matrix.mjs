@@ -83,8 +83,11 @@ const MATRIX = {
   "popup-history-as-pick": { only: "popup-ranked-history-no-crown", expect: "popup-ranked-history-no-crown" },
   "panel-position-memory-only": { only: "panel-minimize-move-controls", expect: "panel-minimize-move-controls" },
   "unknown-as-no-starlink": { only: "guard-popup-state-matrix", expect: "guard-popup-state-matrix" },
+  "popup-route-search-restored": { only: "popup-no-route-search", expect: "popup-no-route-search" },
+  "popup-autowatch-disabled": { only: "popup-autowatch-opens", expect: "popup-autowatch-opens" },
 };
-const CONTROLS_EXPECTED = 56;
+
+const CONTROLS_EXPECTED = 58;
 
 // Owner ruling, 3 Aug 2026: keep these honest-degradation states, but never
 // manufacture a green mutation result for branches no supported host can

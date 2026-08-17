@@ -2,18 +2,15 @@
 // v1.1: flights are sorted by odds, show departure times found on the page, and
 // clicking a row scrolls the united.com tab to that flight.
 
-var fromEl = document.getElementById("usl-from");
-var toEl = document.getElementById("usl-to");
-var formEl = document.getElementById("usl-form");
-var goEl = document.getElementById("usl-go");
 var statusEl = document.getElementById("usl-status");
-var resultsEl = document.getElementById("usl-results");
 var airlineEl = document.getElementById("usl-airline");
 var creditEl = document.getElementById("usl-credit");
 var fullLinkEl = document.getElementById("usl-full-link");
+var currentAirline = "UA";
 
 var activeTab = null;      // active browser tab, on any page
 var tabRoute = null;       // {o,d} parsed from that tab
+var tabDate = null;        // YYYY-MM-DD the tab is showing, when the page says so
 var pageFlights = {};      // fn -> times string, as found on the page
 var lastData = null, lastO = null, lastD = null;
 
@@ -31,11 +28,13 @@ var ALASKA_ORIGINS = ["https://www.alaskaair.com/*", "https://alaskaair.com/*"];
 var GFLIGHTS_ORIGINS = ["https://www.google.com/*"];
 
 function airline() {
-  var v = airlineEl && airlineEl.value ? airlineEl.value.toUpperCase() : "UA";
+  var v = currentAirline;
+  if (airlineEl && airlineEl.value) v = airlineEl.value.toUpperCase();
   return TRACKER_HOST[v] ? v : "UA";
 }
 function setAirline(a) {
   a = TRACKER_HOST[String(a || "").toUpperCase()] ? String(a).toUpperCase() : "UA";
+  currentAirline = a;
   if (airlineEl) airlineEl.value = a;
   updateCredit();
   return a;
@@ -59,8 +58,7 @@ function el(tag, className, text) {
   return e;
 }
 
-function clearResults() { resultsEl.innerHTML = ""; }
-function setStatus(text) { statusEl.textContent = text || ""; }
+function setStatus(text) { if (statusEl) statusEl.textContent = text || ""; }
 function sourceDateLabel(res) {
   var d = res && typeof res.sourceDate === "string" ? res.sourceDate : "";
   return /^\d{4}-\d{2}-\d{2}$/.test(d) ? "source date " + d : "source date not provided";
@@ -194,60 +192,10 @@ function renderNote(note) {
   return wrap;
 }
 
-function renderResults(o, d, data) {
-  clearResults();
-  var any = false;
-  var flightsBlock = renderFlights(data.flights || [], o, d);
-  if (flightsBlock) { resultsEl.appendChild(flightsBlock); any = true; }
-  var itinsBlock = renderItins(data.itins || []);
-  if (itinsBlock) { resultsEl.appendChild(itinsBlock); any = true; }
-  var depsBlock = renderDeps(data.deps || []);
-  if (depsBlock) { resultsEl.appendChild(depsBlock); any = true; }
-  var noteBlock = renderNote(data.note);
-  if (noteBlock) { resultsEl.appendChild(noteBlock); any = true; }
-  if (!any) resultsEl.appendChild(renderEmpty(o, d));
-}
-
-function loadPageFlights(o, d) {
-  if (!activeTab || !sameRoute(o, d)) return;
-  chrome.tabs.sendMessage(activeTab.id, { type: "flightsOnPage" }, function (resp) {
-    if (chrome.runtime.lastError || !resp || !resp.flights) return;
-    pageFlights = {};
-    resp.flights.forEach(function (f) { pageFlights[f.fn] = f.times || ""; });
-    if (lastData) renderResults(lastO, lastD, lastData); // re-render with times + clickability
-  });
-}
-
-function loadRoute(o, d) {
-  o = (o || "").toUpperCase().trim();
-  d = (d || "").toUpperCase().trim();
-  if (o.length !== 3 || d.length !== 3) {
-    setStatus("Enter two 3-letter airport codes.");
-    return;
-  }
-  fromEl.value = o;
-  toEl.value = d;
-  goEl.disabled = true;
-  updateCredit();
-  setStatus("Loading " + airline() + " " + o + " → " + d + "…");
-  clearResults();
-
-  chrome.runtime.sendMessage({ type: "routeData", o: o, d: d, airline: airline() }, function (res) {
-    goEl.disabled = false;
-    if (chrome.runtime.lastError || !res) {
-      setStatus("Could not reach the extension background page.");
-      return;
-    }
-    lastData = res; lastO = o; lastD = d;
-    if (!res.ok) {
-      setStatus(res.error ? "Error: " + res.error : "No data available yet.");
-      renderResults(o, d, res);
-      return;
-    }
-    setStatus(routeResultStatus(res));
-    renderResults(o, d, res);
-    loadPageFlights(o, d);
-  });
+// A date is only usable if the page really gave us one in ISO form. Anything
+// else stays null — auto-watch must never guess a date on the user's behalf.
+function dateParam(v) {
+  return typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null;
 }
 
 // Route + airline from the active tab's URL. united.com and alaskaair.com both
@@ -260,7 +208,10 @@ function parseTabUrl(url) {
     if (/(^|\.)united\.com$/.test(u.hostname)) {
       o = params.get("f") || params.get("origin") || params.get("Origin");
       d = params.get("t") || params.get("destination") || params.get("Destination");
-      if (o && d) return { o: o.toUpperCase(), d: d.toUpperCase(), airline: "UA" };
+      // united.com carries the departure date in "d" — a different param from
+      // the "t"/destination above, so there is no collision with this object's
+      // own d (destination) key.
+      if (o && d) return { o: o.toUpperCase(), d: d.toUpperCase(), date: dateParam(params.get("d")), airline: "UA" };
       return null;
     }
     if (/(^|\.)alaskaair\.com$/.test(u.hostname)) {
@@ -277,41 +228,25 @@ function parseTabUrl(url) {
   }
 }
 
-fromEl.addEventListener("input", function () {
-  fromEl.value = fromEl.value.toUpperCase().replace(/[^A-Z]/g, "");
-});
-toEl.addEventListener("input", function () {
-  toEl.value = toEl.value.toUpperCase().replace(/[^A-Z]/g, "");
-});
-
-formEl.addEventListener("submit", function (e) {
-  e.preventDefault();
-  loadRoute(fromEl.value, toEl.value);
-});
-
 function init() {
   chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
     var tab = tabs && tabs[0];
     var urlRoute = tab && tab.url ? parseTabUrl(tab.url) : null;
     activeTab = tab || null;
     syncHosts(tab);
-    if (!urlRoute) {
-      setStatus("Enter a route to check Starlink odds.");
-      return;
-    }
-    setAirline(urlRoute.airline);
-    // Ask the content script which leg is actually being shown (round trips:
-    // the URL still says outbound while the RETURN list is on screen).
+    if (urlRoute && urlRoute.airline) setAirline(urlRoute.airline);
+    if (!tab || !tab.id) return;
+    // Airline of the active booking tab still drives the credit line and
+    // bare-digit Watch defaults. Route lookup itself was removed from the popup.
     chrome.tabs.sendMessage(tab.id, { type: "pageContext" }, function (pc) {
       void chrome.runtime.lastError;
       if (pc && pc.airline) setAirline(pc.airline);
-      var route = pc && pc.o && pc.d ? { o: pc.o, d: pc.d } : urlRoute;
-      if (!route.o || !route.d) {
-        setStatus("Enter a route to check Starlink odds.");
-        return;
-      }
-      tabRoute = { o: route.o, d: route.d };
-      loadRoute(route.o, route.d);
+      if (pc && pc.o && pc.d) tabRoute = { o: pc.o, d: pc.d };
+      else if (urlRoute && urlRoute.o && urlRoute.d) tabRoute = { o: urlRoute.o, d: urlRoute.d };
+      // The content script knows the leg actually on screen (round trips show
+      // RETURN while the URL still says outbound), so prefer its date.
+      tabDate = dateParam(pc && pc.date) || (urlRoute && urlRoute.date) || null;
+      autoWatch();
     });
   });
 }
@@ -453,11 +388,6 @@ function syncEnableButton(tab) { syncHosts(tab); }
  * names rather than a second implementation. */
 function syncGFlightsButton(tab) { syncHosts(tab); }
 
-if (airlineEl) airlineEl.addEventListener("change", function () {
-  updateCredit();
-  if (fromEl.value.length === 3 && toEl.value.length === 3) loadRoute(fromEl.value, toEl.value);
-});
-
 updateCredit();
 init();
 
@@ -504,7 +434,7 @@ function renderConnectScores() {
     var note = el("div", "usl-cs-note", a.note);
     if (a.instrumented) {
       note.appendChild(document.createTextNode(" "));
-      note.appendChild(el("span", "usl-cs-live", "· live per-flight odds ↑ above"));
+      note.appendChild(el("span", "usl-cs-live", "· live per-flight odds on booking pages"));
     } else if (a.tracker) {
       // Tracked upstream but coarse-only (Hawaiian: aircraft-type derived, no
       // per-flight probability published) — credit the source, promise nothing.
@@ -826,10 +756,124 @@ function loadTrips() {
     if (res && res.trips) renderTrips(res.trips);
   });
 }
+
+/* ── Auto-watch (owner lock, 16 Aug 2026) ──────────────────────────────────
+ * A watch has to OPEN BY ITSELF once the user has a confirmed or tail-assigned
+ * flight. Typing UA1812 + a date is the fallback, not the path.
+ *
+ * The signal is the booking tab the user already opened: init() gives the route
+ * and the leg's date, and the background's routeData carries `deps` — the
+ * departures the tracker has published an actual TAIL for (next ~72h). That is
+ * precisely "confirmed or tail-assigned". A dep matching the tab's route AND
+ * date is the flight the user is looking at, so it is registered on its own;
+ * tripAdd then runs an immediate check and the existing 180-minute uslTripCheck
+ * alarm keeps Starlink status current from there. Remaining tail-assigned deps
+ * on the route get a one-tap Watch — still no typing.
+ *
+ * This is NOT the FROM/TO/Go search PR 5 removed: no route input, no submit,
+ * no user-typed airports. The route is read from the tab, never entered.
+ */
+var autoWatchEl = document.getElementById("usl-autowatch");
+// Registering is bounded per popup open so a browsed route can never eat the
+// background's MAX_TRIPS budget. Duplicates are already a no-op in tripAdd.
+var AUTO_ADD_MAX = 2;
+
+function isWatched(trips, dep) {
+  return trips.some(function (t) { return t.fn === dep.fn && t.date === dep.date; });
+}
+
+// America/Denver calendar date (YYYY-MM-DD via en-CA). UTC toISOString()
+// slice rolls the day at 18:00 local and would drop same-day departures.
+function localCalendarDate(now) {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Denver",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).format(now || new Date());
+}
+
+// deps carry a tail by construction (bg parseDeps only emits matches with one),
+// but re-assert it here: a tail is the whole reason this counts as auto-watchable.
+function watchableDeps(deps) {
+  var today = localCalendarDate();
+  return (deps || []).filter(function (d) {
+    return d && /^(?:UA|AS)\d{1,4}$/.test(d.fn || "") &&
+      /^\d{4}-\d{2}-\d{2}$/.test(d.date || "") && d.date >= today && !!d.tail;
+  });
+}
+
+function autoWatchRow(dep, watched) {
+  var row = el("div", "usl-aw-row");
+  row.appendChild(el("span", "usl-aw-fn", dep.fn + " · " + dep.date + " " + dep.time + "Z · tail " + dep.tail));
+  if (watched) {
+    row.appendChild(el("span", "usl-aw-on", "watching"));
+    return row;
+  }
+  var btn = el("button", "usl-aw-btn", "Watch");
+  btn.type = "button";
+  btn.title = "Watch " + dep.fn + " on " + dep.date;
+  btn.addEventListener("click", function () {
+    btn.disabled = true;
+    addWatch(dep.fn, dep.date, function () { btn.disabled = false; });
+  });
+  row.appendChild(btn);
+  return row;
+}
+
+// Single registration path for both the automatic and the one-tap cases, so
+// the service worker's rules (past date, MAX_TRIPS) surface identically.
+function addWatch(fn, date, done) {
+  chrome.runtime.sendMessage({ type: "tripAdd", fn: fn, date: date, source: "autowatch" }, function (res) {
+    void chrome.runtime.lastError;
+    if (res && res.ok === false && res.error) watchStatus.textContent = res.error;
+    if (res && res.trips) { renderTrips(res.trips); autoWatchRender(res.trips); }
+    if (done) done();
+  });
+}
+
+var autoWatchDeps = [];
+
+function autoWatchRender(trips) {
+  if (!autoWatchEl) return;
+  autoWatchEl.innerHTML = "";
+  if (!autoWatchDeps.length) { autoWatchEl.hidden = true; return; }
+  autoWatchEl.hidden = false;
+  autoWatchEl.appendChild(el("div", "usl-aw-label", "Confirmed departures on this page (next ~72h)"));
+  autoWatchDeps.forEach(function (d) {
+    autoWatchEl.appendChild(autoWatchRow(d, isWatched(trips || [], d)));
+  });
+}
+
+function autoWatch() {
+  if (!autoWatchEl) return;
+  if (!tabRoute || !tabRoute.o || !tabRoute.d) { autoWatchEl.hidden = true; return; }
+  chrome.runtime.sendMessage(
+    { type: "routeData", o: tabRoute.o, d: tabRoute.d, airline: airline() },
+    function (res) {
+      void chrome.runtime.lastError;
+      autoWatchDeps = watchableDeps(res && res.deps);
+      if (!autoWatchDeps.length) { autoWatchEl.hidden = true; return; }
+      chrome.runtime.sendMessage({ type: "tripList" }, function (lr) {
+        void chrome.runtime.lastError;
+        var trips = (lr && lr.trips) || [];
+        autoWatchRender(trips);
+        // Only the tab's own date registers itself. Without a date from the
+        // page there is no flight the user demonstrably has, so everything
+        // stays one-tap rather than guessing.
+        if (!tabDate) return;
+        autoWatchDeps
+          .filter(function (d) { return d.date === tabDate && !isWatched(trips, d); })
+          .slice(0, AUTO_ADD_MAX)
+          .forEach(function (d) { addWatch(d.fn, d.date, null); });
+      });
+    }
+  );
+}
 watchForm.addEventListener("submit", function (e) {
   e.preventDefault();
   var fn = (watchFn.value || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
-  // Bare digits inherit the airline currently selected above.
+  // Bare digits inherit the airline of the active booking tab, else UA.
   if (/^\d{1,4}$/.test(fn)) fn = airline() + fn;
   if (!/^(?:UA|AS)\d{1,4}$/.test(fn)) { watchStatus.textContent = "Enter a flight like UA1812 or AS1."; return; }
   if (!watchDate.value) { watchStatus.textContent = "Pick a date."; return; }
@@ -851,5 +895,5 @@ checkNowBtn.addEventListener("click", function () {
   });
 });
 var wd = new Date(Date.now() + 2 * 864e5);
-watchDate.value = wd.toISOString().slice(0, 10);
+watchDate.value = localCalendarDate(wd);
 loadTrips();

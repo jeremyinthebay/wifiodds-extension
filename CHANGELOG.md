@@ -9,6 +9,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+
+- Popup auto-watch. When the booking page you already have open has a confirmed, tail-assigned departure (the tracker's next-~72h feed), the watch now opens by itself for the flight on that page's date and keeps its Starlink status current through the existing three-hourly tail check. Other tail-assigned departures on the same route get a one-tap Watch. Typing a flight number and date still works, but has moved behind an “Add a flight manually” disclosure — it is the fallback, not the path. The route is read from the tab, never entered: this does not reintroduce the removed FROM/TO/Go search, which the same gate still asserts is gone. Unpublished; live Store remains 3.0.2.
+
+### Removed
+
+- Leftover popup airline/FROM/TO/Go route search and “Enter a route to check Starlink odds.” ConnectScore, settings, guarded trips, and finish-setup stay. Unpublished; live Store remains 3.0.2.
+
 ### Fixed
 
 - Granted Google Flights search with no scored rows now says there are no scored flights in these results, instead of drawing a blank panel. Labels only. Google is still never reordered.
