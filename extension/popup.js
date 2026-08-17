@@ -782,10 +782,21 @@ function isWatched(trips, dep) {
   return trips.some(function (t) { return t.fn === dep.fn && t.date === dep.date; });
 }
 
+// America/Denver calendar date (YYYY-MM-DD via en-CA). UTC toISOString()
+// slice rolls the day at 18:00 local and would drop same-day departures.
+function localCalendarDate(now) {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Denver",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).format(now || new Date());
+}
+
 // deps carry a tail by construction (bg parseDeps only emits matches with one),
 // but re-assert it here: a tail is the whole reason this counts as auto-watchable.
 function watchableDeps(deps) {
-  var today = new Date().toISOString().slice(0, 10);
+  var today = localCalendarDate();
   return (deps || []).filter(function (d) {
     return d && /^(?:UA|AS)\d{1,4}$/.test(d.fn || "") &&
       /^\d{4}-\d{2}-\d{2}$/.test(d.date || "") && d.date >= today && !!d.tail;
@@ -884,5 +895,5 @@ checkNowBtn.addEventListener("click", function () {
   });
 });
 var wd = new Date(Date.now() + 2 * 864e5);
-watchDate.value = wd.toISOString().slice(0, 10);
+watchDate.value = localCalendarDate(wd);
 loadTrips();
