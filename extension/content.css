@@ -478,30 +478,32 @@ span.usl-watching:focus-visible{
 .usl-badge-grp{display:inline-flex;align-items:center;gap:6px;vertical-align:middle;margin-left:6px}
 .usl-badge-grp .usl-badge{margin-left:0}         /* the group owns the left margin */
 .usl-ev{font-size:11px;line-height:16px;font-weight:600;color:#4b5565;white-space:nowrap}
-.usl-confirm{
-  display:inline-flex;align-items:center;font-size:11px;line-height:16px;font-weight:700;
-  color:#fff;background:#20242f;border:1px solid #5b6474;border-radius:999px;padding:1px 7px;white-space:nowrap;
-}
-/* ≤600px: hide the visible evidence label and shorten "✓ Confirmed" to "✓";
- * the full text stays in each element's accessible name / the group aria-label. */
+/* No `.usl-confirm` rules: the row's separate dated ✓ token has no producer
+ * left. Its condition was an assigned tail with no Guard contradiction, which
+ * is now the Starlink Confirmed chip. The panel keeps its own dated
+ * confirmation as `.usl-decision__confirm`. */
+/* ≤600px: hide the visible evidence label; the full text stays in each
+ * element's accessible name / the group aria-label. */
 @media (max-width:600px){
   .usl-ev{display:none}
-  .usl-confirm-w{display:none}
 }
 
-/* ══ v3.0 — the labelled dual-metric row group (Codex round 26) ═══════════════
- * Two stacked labelled lines on a WHITE host row: NEXT-GEN primary, STREAMING
- * secondary. inline-flex column so the group grows the metadata block only and
- * never joins the host's price/action flex row — the geometry contract is that
- * price and booking-action boxes must not shift, wrap or overlap at 340, 390,
- * 600, 601 and desktop. Metric identity is NEVER hidden at any width; only the
- * evidence words and the "Streaming score" word drop. */
+/* ══ v3.0 — the labelled row group ════════════════════════════════════════════
+ * ONE compact labelled odds chip on a WHITE host row (owner lock, State A in
+ * docs/design/overlay-row-visual-spec.md): NEXT-GEN and its figure, on one line.
+ * The airline's Streaming score is fleet-wide, not equal-weight to per-flight
+ * odds, so it has NO second pill here — it keeps its own labelled row in the
+ * panel's Streaming score section. inline-flex so the group grows the metadata
+ * block only and never joins the host's price/action flex row — the geometry
+ * contract is that price and booking-action boxes must not shift, wrap or
+ * overlap at 340, 390, 600, 601 and desktop. Metric identity is NEVER hidden at
+ * any width; only the evidence words drop. */
 .usl-metrics{
-  display:inline-flex;flex-direction:column;align-items:flex-start;gap:2px;
+  display:inline-flex;flex-direction:row;align-items:center;gap:0;
   vertical-align:middle;margin-left:8px;flex:0 0 auto;
   font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
 }
-.usl-ng,.usl-stream-line{display:inline-flex;align-items:center;gap:5px;white-space:nowrap;line-height:16px}
+.usl-ng{display:inline-flex;align-items:center;gap:5px;white-space:nowrap;line-height:16px}
 .usl-ng__label{
   font-size:9.5px;font-weight:800;letter-spacing:.08em;color:#3f4a5a;
 }
@@ -514,27 +516,32 @@ span.usl-watching:focus-visible{
 }
 .usl-ng--none .usl-ng__value{color:#5b6474;font-weight:700}
 .usl-ng__sub{font-size:11px;line-height:16px;font-weight:600;color:#4b5565;white-space:nowrap}
-.usl-stream__label{font-size:9px;font-weight:800;letter-spacing:.08em;color:#6b7280}
-.usl-stream__value{
-  font-size:11.5px;font-weight:700;color:#3f4a5a;font-variant-numeric:tabular-nums;
-  border:1px solid #b6bec9;border-radius:6px;padding:0 5px;
-}
-.usl-stream__value--none{border-style:dashed;font-weight:600}
-.usl-stream__word{font-size:10.5px;color:#6b7280;font-weight:600}
-.usl-metrics .usl-confirm{margin-top:2px}
 
-/* ≤600px — drop the evidence words and the "Streaming score" word. The LABELS
- * stay: an unlabelled percentage is the exact defect this group replaced. */
+/* Assigned-tail type chip. Replaces the NEXT-GEN odds chip once a tail is
+ * published. Starlink uses the site odds fills (#29d8ff on #041318 ink, or
+ * the #926cff / white alternate). Other types are the type word only — no
+ * Starlink mark, no second ConnectScore/Streaming pill. */
+.usl-type-chip{
+  display:inline-flex;align-items:center;gap:5px;vertical-align:middle;
+  border-radius:999px;padding:2px 9px 2px 7px;white-space:nowrap;
+  font-size:12px;font-weight:800;line-height:16px;letter-spacing:.01em;
+}
+.usl-type-chip--starlink{background:#29d8ff;color:#041318}
+.usl-type-chip--starlink.usl-type-chip--alt{background:#926cff;color:#fff}
+.usl-starlink-mark{display:block;flex:none;width:13px;height:13px}
+.usl-type-chip:not(.usl-type-chip--starlink){
+  background:transparent;color:#14181f;border:1px solid #98a2b3;font-weight:700;
+  padding:2px 9px;
+}
+.usl-gf-chip.usl-type-chip{margin-left:6px;flex:0 0 auto}
+
+/* ≤600px — drop the evidence words. The LABEL stays: an unlabelled percentage
+ * is the exact defect this group replaced. */
 @media (max-width:600px){
   .usl-ng__sub{display:none}
-  .usl-stream__word{display:none}
 }
-/* ≤390px — the narrow edge. "STREAMING" abbreviates to "STREAM" via CSS
- * content so the accessible name keeps the full Streaming score. Nothing drops
- * below 11px. */
+/* ≤390px — the narrow edge. Nothing drops below 11px. */
 @media (max-width:390px){
-  .usl-stream__label{font-size:0}
-  .usl-stream__label::after{content:"STREAM";font-size:9px;letter-spacing:.08em}
   .usl-ng__label{font-size:9px}
   .usl-ng__value{font-size:12px}
 }

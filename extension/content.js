@@ -812,6 +812,65 @@
     return out;
   }
 
+  /* Assigned-tail overlay: once a tail is published, the ROW shows the wifi
+   * TYPE, not fleet odds. Tracker deps come from search_starlink_flights, so a
+   * missing wifi/kind field is Starlink. Other assigned tails (wifi: streaming /
+   * basic / …) render the type word with no Starlink mark. Guard's newer
+   * contradictory fact still suppresses the assignment. */
+  function assignedTailActive(fn, hit) {
+    return !!(hit && hit.dep && fn && !guardContradicts(fn));
+  }
+  function assignedWifiType(hit) {
+    const raw = String((hit && hit.dep && (hit.dep.wifi || hit.dep.kind)) || "starlink")
+      .toLowerCase().trim();
+    if (/^(starlink|next-?gen|leo)$/.test(raw)) return "starlink";
+    if (/^streaming(-class)?$/.test(raw)) return "streaming";
+    if (raw === "basic") return "basic";
+    const safe = raw.replace(/[^a-z0-9-]+/g, "");
+    return safe || "starlink";
+  }
+  /* The dish silhouette from the merged design pass (docs/mockups/
+   * overlay-row-visual-pass.html). Simple geometry, `fill="currentColor"` so it
+   * takes the chip ink on either allowed plate, and aria-hidden — the chip copy
+   * "Starlink Confirmed" is the accessible name. */
+  const STARLINK_MARK_D =
+    "M13.55 1.72a1.35 1.35 0 0 0-1.9 0L10.4 2.97a1.35 1.35 0 0 0 0 1.9l.42.42-2.28 2.28A5.7 5.7 0 0 0 " +
+    "5.1 6.2a.85.85 0 1 0 .12 1.7 4 4 0 0 1 2.38 1.22L2.28 14.44a.9.9 0 1 0 1.28 1.28l5.32-5.32A4 4 0 " +
+    "0 1 10.1 11.8a.85.85 0 1 0 1.7.12 5.7 5.7 0 0 0-1.37-3.44l2.28-2.28.42.42a1.35 1.35 0 0 0 1.9 0l" +
+    "1.25-1.25a1.35 1.35 0 0 0 0-1.9z";
+  function starlinkMark() {
+    const ns = "http://www.w3.org/2000/svg";
+    const svg = document.createElementNS(ns, "svg");
+    svg.setAttribute("viewBox", "0 0 16 16");
+    svg.setAttribute("width", "13");
+    svg.setAttribute("height", "13");
+    svg.setAttribute("aria-hidden", "true");
+    svg.setAttribute("focusable", "false");
+    svg.classList.add("usl-starlink-mark");
+    const path = document.createElementNS(ns, "path");
+    path.setAttribute("fill", "currentColor");
+    path.setAttribute("d", STARLINK_MARK_D);
+    svg.appendChild(path);
+    return svg;
+  }
+  function typeChip(wifi, dep) {
+    const chip = document.createElement("span");
+    const starlink = wifi === "starlink";
+    chip.className = "usl-type-chip usl-type-chip--" + (starlink ? "starlink" : wifi);
+    if (starlink) chip.appendChild(starlinkMark());
+    const word = document.createElement("span");
+    word.className = "usl-type-chip__word";
+    word.textContent = starlink ? "Starlink Confirmed" : wifi;
+    chip.appendChild(word);
+    const tail = dep && dep.tail ? dep.tail : "";
+    const date = dep && dep.date ? dep.date : "";
+    chip.setAttribute("aria-label",
+      starlink
+        ? ("Starlink Confirmed" + (tail ? " tail " + tail : "") + (date ? " for " + date : ""))
+        : (wifi + (tail ? " tail " + tail : "") + (date ? " for " + date : "")));
+    return chip;
+  }
+
   /* Compute what the chip should say. Split from the write so the write can be
    * skipped when nothing changed — see gfChipFill(). */
   function gfChipState(key, fn, hit, op) {
@@ -825,21 +884,37 @@
       ? " · operated by " + op.name + " — scored on operating carrier" +
         (op.marketedAs ? " (marketed as " + op.marketedAs + ")" : "")
       : "";
+    if (assignedTailActive(fn, hit)) {
+      const wifi = assignedWifiType(hit);
+      const starlink = wifi === "starlink";
+      return {
+        sig: "assigned|" + wifi + "|" + fn + "|" + (hit.dep.tail || "") + opSig,
+        cn: "usl-gf-chip usl-type-chip usl-type-chip--" + (starlink ? "starlink" : wifi),
+        tx: starlink ? "Starlink Confirmed" : wifi,
+        starlinkMark: starlink,
+        ti: (fn ? fn + ": " : "") + (starlink
+          ? "Starlink Confirmed tail " + hit.dep.tail + " for " + hit.dep.date
+          : wifi + " WiFi on assigned tail " + (hit.dep.tail || "")) +
+          opNote + " · " + GF_CREDIT,
+        record: flightEvidenceRecord(fn, hit,
+          { k: "prob", value: typeof hit.prob === "number" ? hit.prob + "%" : "" },
+          metricEvidence("tracker", WIFI_AIRLINES[key])),
+      };
+    }
     if (hit && typeof hit.prob === "number") {
       // Tier 2: live per-flight odds replace the static score. LABELLED (Codex
       // round 26): an unlabelled "🛰 42" meant Streaming score here and per-flight
       // next-gen odds on united.com, with nothing on screen to tell them apart.
       return {
         sig: "live|" + fn + "|" + hit.prob + "|" + (hit.obs || 0) + "|" +
-          (hit.dep ? hit.dep.tail : "") + "|" + (hit.conf || "") + opSig,
+          (hit.conf || "") + opSig,
         cn: "usl-badge usl-gf-chip usl-gf-live " + cls(hit.prob),
-        tx: "NEXT-GEN " + hit.prob + "%" + (hit.dep ? " ✓" : ""),
+        tx: "NEXT-GEN " + hit.prob + "%",
         ti: fn + ": " +
           (hit.conf === "type"
             ? "~" + hit.prob + "% odds derived from aircraft type"
             : "gets a Starlink-equipped plane ~" + hit.prob + "% of the time (" +
               (hit.obs || 0) + " recent departures)") +
-          (hit.dep ? " — CONFIRMED Starlink tail " + hit.dep.tail : "") +
           " · data: " + (key === "alaska" ? "alaskastarlinktracker.com" : "unitedstarlinktracker.com") +
           opNote + " · " + GF_CREDIT,
         record: flightEvidenceRecord(fn, hit, { k: "prob", value: hit.prob + "%" },
@@ -886,7 +961,14 @@
     if (chip.dataset.gfSig === s.sig) return chip;
     chip.dataset.gfSig = s.sig;
     chip.className = s.cn;
-    chip.textContent = s.tx;
+    if (s.starlinkMark) {
+      const word = document.createElement("span");
+      word.className = "usl-type-chip__word";
+      word.textContent = s.tx;
+      chip.replaceChildren(starlinkMark(), word);
+    } else {
+      chip.textContent = s.tx;
+    }
     chip.title = s.ti;
     return typeof USLEvidence !== "undefined" ? USLEvidence.upgrade(chip, s.record) : chip;
   }
@@ -1215,93 +1297,73 @@
     if (fn) grp.dataset.b = fn;
     grp.dataset.ngState = st.k;
 
-    const showNg = metricsMode !== "streaming";
-    const showStream = metricsMode !== "nextgen";
+    const assigned = assignedTailActive(fn, hit);
+    if (assigned) {
+      const wifi = assignedWifiType(hit);
+      grp.classList.add("usl-metrics--assigned");
+      grp.dataset.ngState = "assigned";
+      grp.dataset.wifiType = wifi;
+      grp.appendChild(typeChip(wifi, hit.dep));
+      const sentence = (fn ? fn + ": " : "") +
+        (wifi === "starlink"
+          ? "Starlink Confirmed tail " + hit.dep.tail + " for " + hit.dep.date
+          : wifi + " WiFi on assigned tail " + (hit.dep.tail || "") +
+            (hit.dep.date ? " for " + hit.dep.date : "")) +
+        ".";
+      grp.setAttribute("role", "group");
+      grp.setAttribute("aria-label", sentence);
+      grp.title = sentence;
+      return grp;
+    }
+
+    // State A — no tail assigned. ONE compact odds chip, per the owner lock in
+    // docs/design/overlay-row-visual-spec.md: the next-gen figure answers the
+    // per-flight question, and the airline's Streaming score is NOT equal-weight
+    // so it gets no second pill here. It keeps its own labelled row in the
+    // panel's "Streaming score · out of 100" section, where it is read as the
+    // fleet-wide fact it is. `metricsMode` no longer gates this chip: the row
+    // component has no display toggle, and a "streaming" mode must not be able
+    // to empty the row.
     const ngEvidence = metricEvidence(
       st.k === "prob" || st.k === "nohistory" || st.k === "unavail" ? "tracker" : "model",
       entry
     );
-    const streamEvidence = metricEvidence("model", entry);
 
     const typed = !!(hit && hit.conf === "type");
     const obsN = obsCount(hit);
-    let ngText = "";
-    if (showNg) {
-      const line = document.createElement("span");
-      line.className = "usl-ng " + def.cls;
-      attachEvidence(line, ngEvidence);
-      const lab = document.createElement("span");
-      lab.className = "usl-ng__label";
-      lab.textContent = def.label;
-      line.appendChild(lab);
-      const val = st.value !== undefined ? st.value : def.value;
-      if (val) {
-        const v = document.createElement("span");
-        // Only a REAL per-flight probability takes the odds ramp. Fleet share
-        // and every absence state stay outline/neutral so the two can never be
-        // read as the same kind of fact.
-        v.className = "usl-ng__value" + (st.k === "prob" ? " usl-badge " + cls(hit.prob) : "");
-        v.textContent = (st.k === "prob" && typed ? "~" : "") + val;
-        line.appendChild(v);
-        if (typeof USLEvidence !== "undefined") USLEvidence.upgrade(v, flightEvidenceRecord(fn, hit, st, ngEvidence));
-      }
-      grp.appendChild(line);
-      ngText = def.label + " " + (val || "");
-      // Evidence / reason sits OUTSIDE the value, hidden ≤600px by CSS while
-      // its meaning survives in the group's accessible name.
-      const subTxt = st.k === "prob" ? (obsN ? obsN + " tracked" : (typed ? "aircraft type" : "")) : (def.sub || "");
-      if (subTxt) {
-        const sub = document.createElement("span");
-        sub.className = "usl-ng__sub";
-        sub.textContent = subTxt;
-        line.appendChild(sub);
-      }
+    const line = document.createElement("span");
+    line.className = "usl-ng " + def.cls;
+    attachEvidence(line, ngEvidence);
+    const lab = document.createElement("span");
+    lab.className = "usl-ng__label";
+    lab.textContent = def.label;
+    line.appendChild(lab);
+    const val = st.value !== undefined ? st.value : def.value;
+    if (val) {
+      const v = document.createElement("span");
+      // Only a REAL per-flight probability takes the odds ramp. Fleet share
+      // and every absence state stay outline/neutral so the two can never be
+      // read as the same kind of fact.
+      v.className = "usl-ng__value" + (st.k === "prob" ? " usl-badge " + cls(hit.prob) : "");
+      v.textContent = (st.k === "prob" && typed ? "~" : "") + val;
+      line.appendChild(v);
+      if (typeof USLEvidence !== "undefined") USLEvidence.upgrade(v, flightEvidenceRecord(fn, hit, st, ngEvidence));
+    }
+    grp.appendChild(line);
+    // Evidence / reason sits OUTSIDE the value, hidden ≤600px by CSS while
+    // its meaning survives in the group's accessible name.
+    const subTxt = st.k === "prob" ? (obsN ? obsN + " tracked" : (typed ? "aircraft type" : "")) : (def.sub || "");
+    if (subTxt) {
+      const sub = document.createElement("span");
+      sub.className = "usl-ng__sub";
+      sub.textContent = subTxt;
+      line.appendChild(sub);
     }
 
-    let streamText = "";
-    if (showStream) {
-      const line = document.createElement("span");
-      line.className = "usl-stream-line";
-      attachEvidence(line, streamEvidence);
-      const lab = document.createElement("span");
-      lab.className = "usl-stream__label";
-      lab.textContent = "STREAMING";
-      line.appendChild(lab);
-      if (entry && typeof entry.score === "number") {
-        const v = document.createElement("span");
-        v.className = "usl-stream__value";
-        v.textContent = String(entry.score);
-        line.appendChild(v);
-        if (typeof USLEvidence !== "undefined") USLEvidence.upgrade(v, connectScoreEvidenceRecord(entry));
-        const w = document.createElement("span");
-        w.className = "usl-stream__word";     // hidden at narrow widths
-        w.textContent = "Streaming score";
-        line.appendChild(w);
-        streamText = "Streaming score " + entry.score + " out of 100 across this airline's fleet";
-      } else {
-        const v = document.createElement("span");
-        v.className = "usl-stream__value usl-stream__value--none";
-        v.textContent = "No Streaming score";
-        line.appendChild(v);
-        if (typeof USLEvidence !== "undefined") USLEvidence.upgrade(v, connectScoreEvidenceRecord(entry));
-        streamText = "No Streaming score for this airline";
-      }
-      grp.appendChild(line);
-    }
-
-    // The separate, dated confirmation token — never folded into a metric, and
-    // suppressed when the Guard's newer fact for this exact date contradicts it.
-    if (hit && hit.dep && fn && !guardContradicts(fn)) {
-      const cf = document.createElement("span");
-      cf.className = "usl-confirm";
-      cf.appendChild(document.createTextNode("✓"));
-      const cw = document.createElement("span");
-      cw.className = "usl-confirm-w";
-      cw.textContent = " Confirmed";
-      cf.appendChild(cw);
-      cf.setAttribute("aria-label", "Confirmed Starlink tail " + hit.dep.tail + " for " + hit.dep.date);
-      grp.appendChild(cf);
-    }
+    // No `.usl-confirm` token here. Its only condition was hit.dep + fn + no
+    // Guard contradiction — which is exactly assignedTailActive(), so it now
+    // returns above as the Starlink Confirmed chip. A row that reaches this
+    // point has no assigned tail and has nothing to confirm.
 
     // The full accessible sentence. Every visible state's MEANING survives here
     // even where CSS hides the words at narrow widths.
@@ -1318,10 +1380,7 @@
         : st.k === "notinfleet" ? "no next-gen aircraft in this airline's current fleet"
         : "no fleet data for this airline";
     const sentence = (fn ? fn + ": " : "") +
-      (showNg ? ngSentence + `. Evidence: ${evidenceText(ngEvidence)}` : "") +
-      (showNg && showStream ? ". " : "") +
-      (showStream ? streamText + `. Evidence: ${evidenceText(streamEvidence)}` : "") +
-      (hit && hit.dep && fn && !guardContradicts(fn) ? `. Confirmed Starlink tail ${hit.dep.tail} for ${hit.dep.date}` : "") +
+      ngSentence + `. Evidence: ${evidenceText(ngEvidence)}` +
       ".";
     grp.setAttribute("role", "group");
     grp.setAttribute("aria-label", sentence);

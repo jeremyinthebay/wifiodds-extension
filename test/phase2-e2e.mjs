@@ -143,12 +143,15 @@ const MUTATIONS = {
     expect: "popup-ranked-history-no-crown",
     note: "the popup crowns row zero without the injected card's full evidence gate",
   },
+  // Re-anchored to the panel's Streaming score badge: the row no longer renders
+  // a second metric to merge provenance INTO, so the surviving pair to keep
+  // separate is the row's live tracker odds vs the panel's frozen model ledger.
   "merged-metric-provenance": {
     file: "content.js",
-    from: "attachEvidence(line, streamEvidence);",
-    to: "attachEvidence(line, ngEvidence);",
+    from: "USLEvidence.upgrade(node, connectScoreEvidenceRecord(entry));",
+    to: "USLEvidence.upgrade(node, USLEvidence.flight({ fn: entry && entry.name, probability: entry && entry.score, source: TRACKER, sourceDate: \"source date not provided\" }));",
     expect: "row-metrics-labelled",
-    note: "ConnectScore inherits the live tracker's provenance instead of its frozen model ledger",
+    note: "the Streaming score inherits the live tracker's provenance instead of its frozen model ledger",
   },
   "alaska-united-action": {
     file: "content.js",
@@ -171,10 +174,12 @@ const MUTATIONS = {
     expect: "navan-prioritize-explicit-action",
     note: "Navan loses the United-only remainder clause from its sorting action",
   },
+  // Anchored on the PANEL's Streaming score row — the score's only rendering
+  // since the booking row became one odds chip.
   "streaming-score-uses-coverage-floor": {
     file: "content.js",
-    from: "v.textContent = String(entry.score);",
-    to: "v.textContent = String((entry.ledger.rows.reduce((sum, row) => sum + (row.qMin >= 0.55 ? row.n : 0), 0) / entry.ledger.total) * 100);",
+    from: '<span class="usl-badge usl-cs ${a.cls || cls(a.score)}" data-evidence-connect="${esc(a.key)}">${a.score}</span>',
+    to: '<span class="usl-badge usl-cs ${a.cls || cls(a.score)}" data-evidence-connect="${esc(a.key)}">${(a.ledger.rows.reduce((sum, row) => sum + (row.qMin >= 0.55 ? row.n : 0), 0) / a.ledger.total) * 100}</span>',
     expect: "streaming-value-parity",
     note: "Streaming score is replaced with Confirmed streaming coverage",
   },
@@ -703,14 +708,30 @@ function stripProbe() {
     })) : [],
     sects: [...document.querySelectorAll(".usl-sect")].map((e) => e.textContent || ""),
     grps,
-    // v3.0 dual-metric row groups: the VISIBLE text (so an emptied label is
-    // caught), the resolved state key, and the accessible sentence.
+    // The airline Streaming score no longer has a pill on the booking row (owner
+    // lock: State A is ONE odds chip). Its provenance is still asserted — from
+    // the PANEL's Streaming score section, which is where it now lives. This
+    // stays a SEPARATE record from the row's next-gen evidence: the score is a
+    // frozen model ledger, the odds are a live tracker reading.
+    panelConnectEvidence: (() => {
+      const e = document.querySelector(".usl-panel .usl-stream [data-evidence-connect]");
+      return e ? {
+        value: e.textContent || "",
+        tier: e.dataset.evidenceTier || "", source: e.dataset.evidenceSource || "",
+        date: e.dataset.evidenceDate || "", title: e.title || "",
+      } : null;
+    })(),
+    // v3.0 row groups: the VISIBLE text (so an emptied label is caught), the
+    // resolved state key, and the accessible sentence.
     metrics: [...document.querySelectorAll(".usl-metrics")].map((m) => ({
       text: (m.innerText || m.textContent || "").replace(/\s+/g, " ").trim(),
       state: m.dataset.ngState || null,
       aria: m.getAttribute("aria-label") || "",
       streamingValue: (m.querySelector(".usl-stream__value") || {}).textContent || "",
       confirm: !!m.querySelector(".usl-confirm"),
+      typeChip: (m.querySelector(".usl-type-chip__word") || {}).textContent || "",
+      starlinkMark: !!m.querySelector(".usl-starlink-mark"),
+      wifiType: m.dataset.wifiType || "",
       rampOnValue: !!m.querySelector(".usl-ng__value.usl-badge"),
       nextEvidence: (() => { const e = m.querySelector(".usl-ng"); return e ? {
         tier: e.dataset.evidenceTier || "", source: e.dataset.evidenceSource || "",
@@ -1299,10 +1320,10 @@ const CASES = [
     },
   },
   {
-    // v2.3 (a): CONFIDENCE ON THE BADGE. A near date (so confirmed tails are
-    // relevant) plus a confirmed-departure fixture for UA1596. The badge must
-    // carry the sample size the tracker returned (obs 51 → "· 51 flights") AND
-    // the confirmed-tail ✓ together, and the panel row must echo the sample size.
+    // Assigned Starlink tail: the ROW shows wifi type, not fleet odds.
+    // UA1596 has a published tail → Starlink SVG + exactly "Starlink Confirmed".
+    // UA1214 has no tail yet → the ONE compact next-gen odds chip, alone.
+    // The panel still carries sample size / dated confirmation; the row does not.
     name: "united-confirmed-tail-sample-size",
     o: "SFO", d: "DEN", dateOffsetDays: 1,
     rows: [{ num: 1596, time: "8:30 a.m." }, { num: 1214, time: "11:05 a.m." }],
@@ -1316,24 +1337,60 @@ const CASES = [
       deps: [{ fn: "UA1596", o: "SFO", d: "DEN", date: isoDaysFromNow(1), time: "09:00", tail: "N127UA" }],
       itins: [],
     },
-    awaitBadge: /68%/,
+    awaitPanel: /68%/,
     expect: (txt, badges, strip) => {
-      // v3.0 labelled dual-metric group (Codex round 26 replaced the unlabelled
-      // three-layer badge): the odds VALUE is labelled NEXT-GEN, the evidence
-      // count sits outside it, and a confirmed tail is a SEPARATE dated token —
-      // never a sample count or a ✓ folded into the coloured value.
-      const g = ((strip && strip.metrics) || []).find((x) => /68%/.test(x.text)) || {};
+      const assigned = ((strip && strip.metrics) || []).find((x) => x.state === "assigned") || {};
+      const odds = ((strip && strip.metrics) || []).find((x) => /30%/.test(x.text)) || {};
+      const assignedText = assigned.text || "";
       return {
-        valueLabelledNextGen: /NEXT-GEN 68%/.test(g.text || ""),
-        evidenceOutsideValue: /68% 51 tracked/.test(g.text || ""),
-        streamingSecondary: /STREAMING 44 Streaming score/.test(g.text || ""),
-        rampOnRealProbability: g.rampOnValue === true,
-        confirmTokenSeparate: g.confirm === true,
-        fullAccessibleSentence: /68% historical per-flight next-gen odds from 51 tracked departures\. High confidence\. Evidence: REPORTED · unitedstarlinktracker\.com · source date not provided\. Streaming score 44 out of 100 across this airline's fleet\. Evidence: MODELLED · wifiodds\.com frozen fleet-source ledger · 2026-07/.test(g.aria || ""),
-        accessibleCarriesExactDate: /Confirmed Starlink tail N127UA for \d{4}-\d{2}-\d{2}/.test(g.aria || ""),
+        assignedShowsStarlinkConfirmed: assigned.typeChip === "Starlink Confirmed",
+        assignedExactCopy: assignedText === "Starlink Confirmed",
+        assignedHasStarlinkMark: assigned.starlinkMark === true,
+        assignedNotDesignCopy: !/Next-gen WiFi/.test(assignedText) &&
+          !/✓ tail assigned/.test(assignedText),
+        assignedNoFleetOdds: !/NEXT-GEN/.test(assignedText) && !/\d+%/.test(assignedText),
+        assignedNoStreamingPill: !/STREAMING/.test(assignedText) && !assigned.streamingValue,
+        assignedNoSecondConfirmToken: assigned.confirm === false,
+        accessibleCarriesExactDate: /Starlink Confirmed tail N127UA for \d{4}-\d{2}-\d{2}/.test(assigned.aria || ""),
+        // Owner lock: a row with NO assigned tail is ONE compact odds chip. It
+        // keeps the labelled next-gen figure and gains NO second Streaming /
+        // ConnectScore pill (the score is fleet-wide and lives in the panel).
+        noTailKeepsOddsChip: /NEXT-GEN 30%/.test(odds.text || ""),
+        noTailHasNoStreamingPill: !/STREAMING/.test(odds.text || "") && !odds.streamingValue &&
+          !/Streaming score/.test(odds.text || "") && odds.streamEvidence === null,
         panelRowShowsSampleSize: /51 flights/.test(txt),
         stripConfirmSeparateFact: /✓ Confirmed for \d{4}-\d{2}-\d{2}/.test(txt),
         confirmNeverFreshness: !/Updated|updated|fresh|today/.test(txt),
+      };
+    },
+  },
+  {
+    // Non-Starlink assigned tail: type word only, no Starlink mark, no odds.
+    name: "united-assigned-non-starlink-type",
+    o: "SFO", d: "DEN", dateOffsetDays: 1,
+    rows: [{ num: 2000, time: "8:30 a.m." }, { num: 2001, time: "11:05 a.m." }],
+    mock: {
+      o: "SFO", d: "DEN",
+      route: [
+        { fn: "UA2000", prob: 22, obs: 18, conf: "medium" },
+        { fn: "UA2001", prob: 41, obs: 30, conf: "high" },
+      ],
+      predict: { "UA2000": 0.22, "UA2001": 0.41 },
+      deps: [{ fn: "UA2000", o: "SFO", d: "DEN", date: isoDaysFromNow(1), time: "09:00",
+        tail: "N200UA", wifi: "streaming" }],
+      itins: [],
+    },
+    awaitPanel: /41%/,
+    expect: (txt, badges, strip) => {
+      const assigned = ((strip && strip.metrics) || []).find((x) => x.state === "assigned") || {};
+      const odds = ((strip && strip.metrics) || []).find((x) => /41%/.test(x.text)) || {};
+      return {
+        typeWordOnly: assigned.typeChip === "streaming" && assigned.wifiType === "streaming",
+        noStarlinkMark: assigned.starlinkMark === false,
+        noStarlinkCopy: !/Starlink/i.test(assigned.text || ""),
+        noFleetOddsOnAssigned: !/NEXT-GEN/.test(assigned.text || "") && !/\d+%/.test(assigned.text || ""),
+        noStreamingScorePill: !/STREAMING/.test(assigned.text || ""),
+        noTailKeepsOdds: /NEXT-GEN 41%/.test(odds.text || ""),
       };
     },
   },
@@ -2082,13 +2139,13 @@ const CASES = [
         ["sectionLabel", ".usl-panel .usl-sect", T],
         ["sortedStateLabel", ".usl-panel .usl-sorted__t", T],
         ["undoButton", ".usl-panel .usl-undo", T],
-        // v3.0 row group, on the WHITE host row.
+        // v3.0 row group, on the WHITE host row. The Streaming pill is gone from
+        // the row (owner lock: one odds chip); its contrast is still measured on
+        // the panel, above, as streamingScorePill.
         ["rowNextGenLabel", ".usl-metrics .usl-ng__label", T],
         ["rowNextGenValue", ".usl-metrics .usl-ng__value", T],
         ["rowEvidence", ".usl-metrics .usl-ng__sub", T],
-        ["rowStreamLabel", ".usl-metrics .usl-stream__label", T],
-        ["rowStreamValue", ".usl-metrics .usl-stream__value", T],
-        ["pageConfirm", ".usl-confirm", T],
+        ["pageConfirm", ".usl-type-chip--starlink", T],
       ];
       for (const [k, sel, min] of targets) {
         const v = await pixelContrast(page, sel);
@@ -2181,35 +2238,52 @@ const CASES = [
       await page.setViewportSize({ width: 601, height: 800 });
       await page.waitForTimeout(300);
       const probe601 = () => page.evaluate(() => {
-        const g = document.querySelector(".usl-metrics");
+        const g = document.querySelector(".usl-metrics:not(.usl-metrics--assigned)");
+        const assigned = document.querySelector(".usl-metrics--assigned");
+        const cs = (el) => el ? getComputedStyle(el).display : null;
+        const word = assigned && assigned.querySelector(".usl-type-chip__word");
         return {
-          ev: getComputedStyle(g.querySelector(".usl-ng__sub")).display,
-          cw: getComputedStyle(document.querySelector(".usl-confirm-w")).display,
-          ngLabel: getComputedStyle(g.querySelector(".usl-ng__label")).display,
-          stLabel: getComputedStyle(g.querySelector(".usl-stream__label")).display,
-          stWord: getComputedStyle(g.querySelector(".usl-stream__word")).display,
-          aria: g.getAttribute("aria-label") || "",
+          ev: cs(g && g.querySelector(".usl-ng__sub")),
+          ngLabel: cs(g && g.querySelector(".usl-ng__label")),
+          streamPill: !!(g && g.querySelector(".usl-stream-line, .usl-stream__label, .usl-stream__value")),
+          // Group height vs its single metric line: a stacked second metric
+          // roughly doubles the first. inline-flex always reports one client
+          // rect, so height is what actually catches a re-stack.
+          grpH: g ? Math.round(g.getBoundingClientRect().height) : 0,
+          lineH: g && g.querySelector(".usl-ng")
+            ? Math.round(g.querySelector(".usl-ng").getBoundingClientRect().height) : 0,
+          aria: g ? (g.getAttribute("aria-label") || "") : "",
+          assignedWord: word ? word.textContent : "",
+          assignedWordDisplay: cs(word),
+          assignedAria: assigned ? (assigned.getAttribute("aria-label") || "") : "",
         };
       });
       const at601 = await probe601();
       const s601 = join(SHOTS, "row-metrics-601.png");
-      await (await page.$(".usl-metrics")).screenshot({ path: s601 });
+      await (await page.$(".usl-metrics--assigned, .usl-metrics")).screenshot({ path: s601 });
       await page.setViewportSize({ width: 600, height: 800 });
       await page.waitForTimeout(300);
       const at600 = await probe601();
       const s600 = join(SHOTS, "row-metrics-600.png");
-      await (await page.$(".usl-metrics")).screenshot({ path: s600 });
+      await (await page.$(".usl-metrics--assigned, .usl-metrics")).screenshot({ path: s600 });
       checks.evidenceVisible601 = at601.ev !== "none";
-      checks.confirmWordVisible601 = at601.cw !== "none";
+      checks.assignedWordVisible601 = at601.assignedWord === "Starlink Confirmed" &&
+        at601.assignedWordDisplay !== "none";
       checks.evidenceHidden600 = at600.ev === "none";
-      checks.confirmShortened600 = at600.cw === "none";
-      // METRIC IDENTITY IS NEVER HIDDEN at any width — that is the whole point
-      // of the labelled group, so both labels must survive the breakpoint.
-      checks.labelsSurvive601 = at601.ngLabel !== "none" && at601.stLabel !== "none";
-      checks.labelsSurvive600 = at600.ngLabel !== "none" && at600.stLabel !== "none";
-      checks.connectScoreWordHidden600 = at600.stWord === "none";
+      checks.assignedWordVisible600 = at600.assignedWord === "Starlink Confirmed" &&
+        at600.assignedWordDisplay !== "none";
+      // METRIC IDENTITY IS NEVER HIDDEN at any width on the no-tail row.
+      checks.labelsSurvive601 = at601.ngLabel !== "none";
+      checks.labelsSurvive600 = at600.ngLabel !== "none";
+      // Owner lock: the no-tail row is ONE compact odds chip on ONE line at both
+      // sides of the breakpoint — never a second Streaming pill, never stacked.
+      checks.oneChipNoStreamPill601 = at601.streamPill === false &&
+        at601.lineH > 0 && at601.grpH <= at601.lineH + 2;
+      checks.oneChipNoStreamPill600 = at600.streamPill === false &&
+        at600.lineH > 0 && at600.grpH <= at600.lineH + 2;
       checks.fullAccessibleNameSurvives600 =
-        /51 tracked departures/.test(at600.aria) && /Confirmed Starlink tail N127UA/.test(at600.aria);
+        /tracked departures/.test(at600.aria) &&
+        /Starlink Confirmed tail N127UA/.test(at600.assignedAria);
       checks.breakpointShotsWritten = existsSync(s600) && statSync(s600).size > 200 &&
         existsSync(s601) && statSync(s601).size > 200;
 
@@ -2471,9 +2545,13 @@ const CASES = [
     },
   },
   {
-    // R26 question 2 — the labelled dual-metric row. Every visible metric names
-    // itself; a bare percentage is the defect this replaced. "unlabelled-badge"
-    // lands here.
+    // R26 question 2 — the labelled row chip. Every visible metric names itself;
+    // a bare percentage is the defect this replaced. "unlabelled-badge" lands
+    // here. Owner lock (docs/design/overlay-row-visual-spec.md, State A): the
+    // no-tail row is ONE compact odds chip, so the second Streaming pill is
+    // gone. The Streaming score keeps its own labelled row in the PANEL, and
+    // its frozen-ledger provenance is asserted there — "merged-metric-
+    // provenance" lands on that panel record now.
     name: "row-metrics-labelled",
     o: "SFO", d: "DEN", dateOffsetDays: 1,
     rows: [{ num: 1596, time: "8:30 a.m." }, { num: 1214, time: "11:05 a.m." }],
@@ -2484,34 +2562,39 @@ const CASES = [
         { fn: "UA1214", prob: 30, obs: 40, conf: "medium" },
       ],
       predict: {},
-      deps: [{ fn: "UA1596", o: "SFO", d: "DEN", date: isoDaysFromNow(1), time: "09:00", tail: "N127UA" }],
       itins: [],
     },
     awaitPanel: /68%/,
     expect: (txt, badges, strip) => {
       const g = ((strip && strip.metrics) || []).find((m) => /68%/.test(m.text)) || {};
+      const pc = (strip && strip.panelConnectEvidence) || null;
       return {
         groupRendered: !!g.text,
         nextGenLabelled: /NEXT-GEN/.test(g.text || ""),
-        streamingLabelled: /STREAMING/.test(g.text || ""),
-        nextGenBeforeStreaming: (g.text || "").indexOf("NEXT-GEN") >= 0 &&
-          (g.text || "").indexOf("NEXT-GEN") < (g.text || "").indexOf("STREAMING"),
+        // Owner lock, State A: ONE compact odds chip. No second Streaming /
+        // ConnectScore pill on the booking row, at any width.
+        noStreamingPillOnRow: !/STREAMING/.test(g.text || "") &&
+          !/Streaming score/.test(g.text || "") && !g.streamingValue &&
+          g.streamEvidence === null,
         noBareSatellitePill: !((g.text || "").trim().match(/^🛰️\s*\d+%$/)),
         stateIsProbability: g.state === "prob",
         evidenceShown: /51 tracked/.test(g.text || ""),
-        streamingScoreWordShown: /Streaming score/.test(g.text || ""),
         accessibleSaysPerFlight: /historical per-flight next-gen odds/.test(g.aria || ""),
-        accessibleSaysStreaming: /Streaming score 44 out of 100 across this airline's fleet/.test(g.aria || ""),
+        accessibleDropsStreaming: !/Streaming score/.test(g.aria || ""),
         nextGenEvidenceIsTracker: !!g.nextEvidence && g.nextEvidence.tier === "REPORTED" &&
           g.nextEvidence.source === "unitedstarlinktracker.com" &&
           g.nextEvidence.date === "source date not provided",
-        connectScoreEvidenceIsModel: !!g.streamEvidence && g.streamEvidence.tier === "MODELLED" &&
-          /wifiodds\.com frozen fleet-source ledger/.test(g.streamEvidence.source) &&
-          g.streamEvidence.date === "2026-07",
-        sourcesRemainSeparate: !!g.nextEvidence && !!g.streamEvidence &&
-          g.nextEvidence.source !== g.streamEvidence.source &&
-          !/unitedstarlinktracker/.test(g.streamEvidence.title),
-        confirmStillSeparate: g.confirm === true,
+        // The Streaming score still renders, labelled, in the panel — and still
+        // carries its OWN frozen-ledger provenance, never the live tracker's.
+        panelKeepsLabelledStreamingScore: (strip.sects || []).some((s) => /Streaming score · out of 100/.test(s)) &&
+          !!pc && pc.value === "44",
+        connectScoreEvidenceIsModel: !!pc && pc.tier === "MODELLED" &&
+          /wifiodds\.com frozen fleet-source ledger/.test(pc.source) &&
+          pc.date === "2026-07",
+        sourcesRemainSeparate: !!g.nextEvidence && !!pc &&
+          g.nextEvidence.source !== pc.source &&
+          !/unitedstarlinktracker/.test(pc.title),
+        confirmAbsentWithoutTail: g.confirm === false && g.state === "prob",
       };
     },
   },
@@ -2542,8 +2625,11 @@ const CASES = [
         };
       });
       await page.goto(url, { waitUntil: "domcontentloaded" });
-      await page.waitForSelector(".usl-stream__value", { timeout: 30000 });
-      const visible = await page.$eval(".usl-stream__value", (e) => e.textContent || "");
+      // The score's only rendering is the PANEL's Streaming score row — the
+      // booking row is one odds chip and never carried it (owner lock).
+      const SEL = ".usl-panel .usl-stream .usl-badge.usl-cs";
+      await page.waitForSelector(SEL, { timeout: 30000 });
+      const visible = await page.$eval(SEL, (e) => e.textContent || "");
       return { appeared: true, panelText: visible, badges: [], probe: { fixture, visible }, checks: {
         renderedEqualsScoreAirline: visible === String(fixture.score),
         renderedDoesNotUseConfirmedStreamingCoverage: Number.isFinite(fixture.confirmedStreamingPct) &&
@@ -2588,6 +2674,11 @@ const CASES = [
     },
   },
   {
+    // The booking row carries ONE disclosed figure now (owner lock: State A is
+    // one compact odds chip), so the row group has exactly one native trigger.
+    // The Streaming score keeps its trigger in the PANEL, and its "never ranks
+    // flight rows" contract is asserted there — the authority claim is what
+    // matters, not which surface hosts it.
     name: "figure-disclosure-row-contract",
     o: "SFO", d: "DEN",
     rows: [{ num: 1596, time: "8:30 a.m." }, { num: 800, time: "11:05 a.m." }],
@@ -2612,7 +2703,7 @@ const CASES = [
         date: e.dataset.evidenceDate, sample: e.dataset.evidenceSample, tag: e.tagName,
         rect: { w: e.getBoundingClientRect().width, h: e.getBoundingClientRect().height } }));
       await page.keyboard.press("Escape");
-      const connect = highRow.locator('[data-evidence-kind="connectscore"]');
+      const connect = page.locator('.usl-panel [data-evidence-kind="connectscore"]').first();
       const connectAuthority = await connect.evaluate((e) => ({
         row: e.dataset.evidenceRowRanking,
         decision: e.dataset.evidenceDecisionRanking,
@@ -2631,7 +2722,7 @@ const CASES = [
       await page.keyboard.press("Escape");
       const panelText = flightDrawer + "\n" + connectDrawer + "\n" + noneDrawer;
       return { appeared: true, panelText, badges: [], probe: { flightData, connectAuthority, geometry, groupKinds, panelKinds }, checks: {
-        twoNativeControlsPerDualGroup: eq(groupKinds, ["flight-nextgen", "connectscore"]) && flightData.tag === "BUTTON",
+        oneNativeControlPerRowGroup: eq(groupKinds, ["flight-nextgen"]) && flightData.tag === "BUTTON",
         injectedPanelAdaptersComplete: panelKinds.includes("flight-nextgen") && panelKinds.includes("connectscore") && panelKinds.includes("itinerary-joint"),
         triggersMeetTouchTarget: flightData.rect.w >= 44 && flightData.rect.h >= 44,
         trackerContractComplete: /REPORTED/.test(flightDrawer) && /unitedstarlinktracker\.com/.test(flightDrawer) &&
@@ -2949,7 +3040,9 @@ const CASES = [
         neverZeroPercent: !all.some((m) => /\b0%/.test(m.text || "")),
         neverSaysNoStarlink: !/No Starlink/.test(txt) && !all.some((m) => /No Starlink/.test(m.text || "")),
         accessibleNamesAbsence: /no per-flight next-gen history/.test(none.aria || ""),
-        streamingStillShown: /STREAMING/.test(none.text || ""),
+        // Absence is still ONE chip: naming the missing history must not bring
+        // back a second Streaming pill as filler.
+        streamingPillGone: !/STREAMING/.test(none.text || "") && !none.streamingValue,
       };
     },
   },
@@ -3231,7 +3324,8 @@ function depsText(mock) {
   const deps = mock.deps || [];
   if (!deps.length) return ""; // no confirmed departures
   return deps.map((x) =>
-    `${x.fn} ${x.o}→${x.d} dep ${x.date} ${x.time}Z (tail ${x.tail})`).join("\n");
+    `${x.fn} ${x.o}→${x.d} dep ${x.date} ${x.time}Z (tail ${x.tail}` +
+    (x.wifi ? " · " + x.wifi : "") + ")").join("\n");
 }
 
 async function fulfillTracker(route) {
